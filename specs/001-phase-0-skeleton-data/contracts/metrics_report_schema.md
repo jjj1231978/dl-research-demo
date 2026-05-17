@@ -49,24 +49,35 @@ Python `float`s.
 4. **Signature invariant**: parameter list and return type annotation MUST
    NOT change (Principle V).
 
-## Synthetic-series reference values (used by `tests/unit/test_metrics.py`)
+## Test strategy (used by `tests/unit/test_metrics.py`)
 
-For `rng = np.random.default_rng(0); ret = rng.normal(0.0005, 0.01, 1000)`,
-the expected values land in the tolerance bands documented in brief §13.7:
+The brief's §13.7 suggested **tolerance bands** ("Sharpe ≈ 0.79",
+"max_drawdown ∈ [0.05, 0.20]", "hit_rate ≈ 0.52") that turn out to be the
+**theoretical** values for the population (mean=0.0005, std=0.01) — NOT the
+empirical values for a single N=1000 draw. Empirical Sharpe at N=1000 with
+true Sharpe=0.79 has standard error ~0.5 (annualized), so a single draw can
+fall anywhere in roughly [-0.5, 2.0]. The brief's bands are mathematically
+optimistic about empirical convergence.
 
-| Key | Expected range | Why |
-|---|---|---|
-| `annual_sharpe` | `0.74 ≤ x ≤ 0.84` | Brief §13.7 documents ≈ 0.79 |
-| `max_drawdown` | `0.05 ≤ x ≤ 0.20` | Brief §13.7 documents that range |
-| `pct_positive` | `0.47 ≤ x ≤ 0.57` | Brief §13.7 documents ≈ 0.52 |
-| `annual_ret` | `0.10 ≤ x ≤ 0.16` | Derived: `0.0005 × 252 ≈ 0.126` |
-| `annual_std` | `0.14 ≤ x ≤ 0.18` | Derived: `0.01 × √252 ≈ 0.159` |
-| `downside_dev` | finite, > 0 | No specific band |
-| `sortino` | finite | No specific band |
-| `calmar` | finite, > 0 | No specific band |
-| `avg_p_over_l` | `0.7 ≤ x ≤ 1.3` | Symmetric distribution → ratio ≈ 1 |
+The Phase 0 tests sidestep the issue by using **formula-equality assertions**
+instead of tolerance bands. For the fixture
+`rng = np.random.default_rng(0); ret = rng.normal(0.0005, 0.01, 1000)`:
 
-Tests assert membership in these bands AND that the value is finite. The
-exact value is recorded as a comment in the test for reviewer eyeballing but
-is NOT asserted (cross-platform float drift on `np.std` is real and the
-bands give us room).
+- **Principle V regression** (`test_original_keys_regression`): each of
+  the three original keys is re-computed inline using the brief §13.7 /
+  src.metrics formula and asserted equal to `report_metrics(ret)[k]` with
+  `pytest.approx(rel=1e-12)`. This catches any change to the formula
+  deterministically; no seed dependency.
+- **Extension formulas** (one test per new key:
+  `test_downside_dev_formula`, `test_sortino_formula`,
+  `test_max_drawdown_formula`, `test_calmar_formula`,
+  `test_pct_positive_formula`, `test_avg_p_over_l_formula`): same pattern —
+  inline-recompute, assert `pytest.approx(rel=1e-12)`.
+- **Key-set + finiteness** (`test_extended_keys_present`,
+  `test_extended_keys_finite`): all nine keys present, all values finite.
+- **Signature invariant** (`test_signature_unchanged`): `inspect.signature`
+  confirms parameter list unchanged (Principle V).
+
+A future test in Phase 1+ may add a tolerance-band check at a larger N
+(e.g., N=100_000) where the empirical Sharpe DOES converge to within 5% of
+theoretical — but that's a different sanity check, not a Principle V guard.
