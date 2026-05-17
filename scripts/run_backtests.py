@@ -164,7 +164,8 @@ def _build_momentum_panel(data_dir: Path, checkpoint_dir: Path):
 
         for vol_scaling in (False, True):
             scaled = vol_target(pnl, target_vol=0.15) if vol_scaling else pnl
-            stacked = scaled.stack(dropna=True).rename("daily_return").reset_index()
+            stacked = scaled.stack().rename("daily_return").reset_index()
+            stacked = stacked.dropna(subset=["daily_return"])
             stacked["strategy"] = strategy
             stacked["vol_scaling"] = vol_scaling
             stacked = stacked[["date", "contract", "strategy", "vol_scaling", "daily_return"]]
