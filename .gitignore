@@ -65,5 +65,11 @@ data/backtests/*.parquet.json
 # Whitelist: input data the HF Space app needs to render Tab 1 + Tab 4.
 !data/cme_futures.parquet
 !data/cme_futures.parquet.json
+!data/etf_basket.parquet
+!data/etf_basket.parquet.json
+!data/sp500_20.parquet
+!data/sp500_20.parquet.json
 !data/backtests/momentum_results.parquet
 !data/backtests/momentum_results.parquet.json
+!data/backtests/portfolio_results.parquet
+!data/backtests/portfolio_results.parquet.json

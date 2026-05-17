@@ -1,11 +1,13 @@
 <!-- SPECKIT START -->
-**Active feature**: `002-phase-1-momentum` (Phase 1 — Momentum Page, Lim et al. 2019)
+**Active feature**: `003-phase-2-portfolio` (Phase 2 — Portfolio Page, Zhang et al. 2020)
 
-**Plan**: [specs/002-phase-1-momentum/plan.md](specs/002-phase-1-momentum/plan.md)
+**Spec**: [specs/003-phase-2-portfolio/spec.md](specs/003-phase-2-portfolio/spec.md)
 
-**Spec**: [specs/002-phase-1-momentum/spec.md](specs/002-phase-1-momentum/spec.md)
+**Plan**: TBD (run /speckit-plan)
 
-**Phase 0 reference** (merged into this branch's history): [specs/001-phase-0-skeleton-data/plan.md](specs/001-phase-0-skeleton-data/plan.md)
+**Phase 1 reference** (live on HF Space, merged into main): [specs/002-phase-1-momentum/spec.md](specs/002-phase-1-momentum/spec.md), [tasks.md](specs/002-phase-1-momentum/tasks.md)
+
+**Phase 0 reference** (merged into main): [specs/001-phase-0-skeleton-data/plan.md](specs/001-phase-0-skeleton-data/plan.md)
 
 **Project brief** (multi-phase roadmap): [Project_brief.md](Project_brief.md)
 
