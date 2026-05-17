@@ -100,7 +100,16 @@ description: "Task list for Phase 1 — Momentum Page (Lim et al. 2019)"
 
 ### Implementation for User Story 2
 
-These tasks are mostly **manual operator steps** (cannot fully automate without committing Modal credentials, which Constitution Principle III + brief §15.4 forbid). The training script itself was built in T015; this phase is its first real exercise.
+> **⚠ Developer-action required.** These tasks are manual operator steps that
+> need Modal credentials on the developer's machine. The auto-coder cannot
+> execute them — Modal credentials live in `~/.modal.toml` and the
+> Constitution forbids committing them (Principle III + brief §15.4). The
+> training script itself (`src/training/train_deep_momentum.py`) was built
+> in T015 and is ready; this phase is its first real exercise.
+>
+> Run the sequence below in order on the developer's local terminal. Each
+> step's expected duration / cost is annotated. Total estimated wall-clock:
+> ~30 minutes; total Modal credit: ~$0.25.
 
 - [ ] T030 [US2] Manual pre-flight: `pip install modal` on the developer's machine (not in any requirements file per `plan.md` §"Primary Dependencies"); `modal token new` (opens browser, writes `~/.modal.toml`); `modal volume create deep-finance-data` (idempotent if Phase 0 already created it).
 - [ ] T031 [US2] Manual: populate the Modal Volume with the just-fetched parquet: `modal volume put deep-finance-data "$DEEP_FINANCE_DATA_DIR/cme_futures.parquet" /cme_futures.parquet`. Required because Modal containers can't reach the developer's local filesystem.
@@ -110,6 +119,8 @@ These tasks are mostly **manual operator steps** (cannot fully automate without 
 - [ ] T035 [US2] Inspect the sidecar JSON: open `data/pretrained/mlp_sharpe.json` and confirm the `trained_with` field starts with `"Modal "` (Constitution Principle III + v1.1.0 amendment via `data-model.md` §E3 validation rules); confirm `arch == "MLP"`, `hyperparameters.hidden_size == 20`.
 - [ ] T036 [US2] Re-render the Momentum page: `.venv/bin/streamlit run streamlit_app.py` → click Momentum → Tab 3 now shows the model card with the real `trained_with` + `test_annual_sharpe` values pulled from the JSON sidecar.
 - [ ] T037 [US2] Re-run `scripts/run_backtests.py --momentum` (T017): now that `mlp_sharpe.pt` and `lstm_sharpe.pt` exist, the script populates all 5 strategy rows in `momentum_results.parquet` (previously only 3 reference rows because deep checkpoints were missing). Tab 4 sub-tabs 4A/4B/4C/4D now show 5-row tables / 5-trace charts.
+
+**Verification once US2 lands**: `pytest tests/unit/test_checkpoint_smoke.py -v` should change from "2 skipped" to "2 passed" — proves the committed `.pt` files load cleanly under the matching `nn.Module`.
 
 **Checkpoint**: US2 is functional. Both deep models are trained, committed, and being served by the live app. Tab 4 exhibits are populated.
 
