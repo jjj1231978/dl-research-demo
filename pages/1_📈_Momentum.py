@@ -160,7 +160,20 @@ panel = _load_cme_panel(str(cme_path))
 parquet_present = not panel.empty
 
 backtest_path = _backtests_dir() / "momentum_results.parquet"
-backtest_panel = _load_backtest_panel(str(backtest_path))
+backtest_panel_full = _load_backtest_panel(str(backtest_path))
+
+# Honour the sidebar date_range slider. The paper's Exhibits 2/3/4/5 are all
+# out-of-sample evaluation, so the default range starts at TEST_START — but the
+# user can widen to include the training window if they want to inspect
+# in-sample overfitting. Tab 2 and Tab 4 both consume this filtered view.
+if not backtest_panel_full.empty:
+    _lo = pd.Timestamp(date_range[0])
+    _hi = pd.Timestamp(date_range[1])
+    backtest_panel = backtest_panel_full[
+        (backtest_panel_full["date"] >= _lo) & (backtest_panel_full["date"] <= _hi)
+    ]
+else:
+    backtest_panel = backtest_panel_full
 
 
 # ──────────────────────────────────────────────────────────────────────

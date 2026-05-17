@@ -14,18 +14,19 @@
   "hyperparameters": {
     "hidden_size": 10,
     "lr": 0.001,
-    "batch_size": 128,
-    "epochs_trained": 50,
+    "batch_size_days": 32,
+    "epochs_trained": 30,
     "patience": 25,
     "min_delta": 0.0001,
     "seq_length": 60,
-    "n_features": 8
+    "n_features": 8,
+    "aggregation": "per_day_portfolio_mean"
   },
   "final_metrics": {
-    "val_neg_sharpe": -0.0027590275276452303,
-    "test_annual_sharpe": 0.04380048553111447,
-    "test_max_drawdown": 0.2008640170097351,
-    "test_calmar": 0.006764302627271684
+    "val_neg_sharpe": -0.01354785542935133,
+    "test_annual_sharpe": 0.21513250791205094,
+    "test_max_drawdown": 0.03188532590866089,
+    "test_calmar": 0.10914782072872845
   },
   "git_commit": ""
 }
