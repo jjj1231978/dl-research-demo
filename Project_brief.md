@@ -44,7 +44,7 @@ All model training that produces the checkpoints in `data/pretrained/` is perfor
 - **Workflow:**
   1. Training source code lives in `src/models/*.py` and `src/training/*.py` as device-agnostic Python modules — testable locally on CPU with `python -m src.training.train_deep_momentum`, executable on Modal GPU with `modal run src/training/train_deep_momentum.py`.
   2. Each `src/training/train_*.py` file declares its Modal `App`, `Image`, `Volume`, and `@app.function(gpu="T4")` decorator at the top of the file. There is **no separate notebook layer** — the decorator replaces the Colab notebook.
-  3. The developer pulls the final `.pt` + JSON sidecar from the Modal Volume via `modal volume get deep-finance-data /pretrained ./data/pretrained/`, commits to the repo, and pushes; the GitHub Action syncs to HF Space which serves them.
+  3. The developer pulls the final `.pt` + JSON sidecar from the Modal Volume via `modal volume get dl-research-data /pretrained ./data/pretrained/`, commits to the repo, and pushes; the GitHub Action syncs to HF Space which serves them.
 - **Device-agnosticism is mandatory:** Every model and every training loop must detect the device (`torch.device('cuda' if torch.cuda.is_available() else 'cpu')`) and work in both. The source notebooks already do this — preserve the pattern. The Modal decorator runs the function inside a CUDA-enabled container, so `torch.cuda.is_available()` returns `True` there and `False` locally.
 - **Session reliability:** Modal containers are ephemeral — preemption, image rebuild, or timeout can interrupt a long run. Training functions must checkpoint to the **Modal Volume** every N epochs and accept a `resume_from` argument so a restart picks up the latest checkpoint without losing progress. The Volume persists across container instances; only it survives.
 - **Separate requirements file:** `requirements-train.txt` contains GPU torch + training-only deps (e.g. wandb if desired); it is baked into the Modal container image via `modal.Image.pip_install_from_requirements("requirements-train.txt")`. The production `requirements.txt` stays CPU-lean and is **not** consumed by Modal.
@@ -708,7 +708,7 @@ image = (
     .add_local_python_source("src")  # mounts src/ into the container at /root/src
 )
 
-volume = modal.Volume.from_name("deep-finance-data", create_if_missing=True)
+volume = modal.Volume.from_name("dl-research-data", create_if_missing=True)
 
 @app.function(
     image=image,
@@ -736,7 +736,7 @@ def main(arch: str = "MLP", resume_from: str | None = None):
     metrics = train_remote.remote(arch=arch, resume_from=resume_from)
     print(f"[train_deep_momentum] arch={arch} metrics={metrics}")
     print(f"To pull the checkpoint locally:")
-    print(f"  modal volume get deep-finance-data /pretrained/{arch.lower()}_sharpe.pt "
+    print(f"  modal volume get dl-research-data /pretrained/{arch.lower()}_sharpe.pt "
           f"./data/pretrained/{arch.lower()}_sharpe.pt")
 
 # ---- Device-agnostic training body (bottom of file) ----
@@ -762,8 +762,8 @@ modal run src/training/train_deep_momentum.py --arch MLP
 ```bash
 pip install modal                           # add to your dev environment, NOT to requirements.txt
 modal token new                             # opens browser once, writes ~/.modal.toml
-modal volume create deep-finance-data       # one-time Volume creation
-modal volume put deep-finance-data \
+modal volume create dl-research-data       # one-time Volume creation
+modal volume put dl-research-data \
        ~/data_lake/deep-finance/ /          # seed the Volume with current parquets
 modal secret create deep-finance-train-env \
        FMP_API_KEY=$FMP_API_KEY             # only if any training step needs FMP at runtime (rare)
@@ -772,7 +772,7 @@ modal secret create deep-finance-train-env \
 **Pulling checkpoints back to the repo**:
 
 ```bash
-modal volume get deep-finance-data /pretrained ./data/pretrained/
+modal volume get dl-research-data /pretrained ./data/pretrained/
 git add data/pretrained/*.pt data/pretrained/*.json
 git commit -m "feat: train mlp_sharpe + lstm_sharpe (Modal T4)"
 git push                                    # GitHub Action syncs to HF Space
@@ -781,7 +781,7 @@ git push                                    # GitHub Action syncs to HF Space
 Key conventions:
 - **Resumability:** Training loops save intermediate `<name>.pt` to the Modal Volume every N epochs and accept a `resume_from` argument so a container preemption doesn't lose work. The Volume persists across container instances; only it survives.
 - **Reproducibility:** Set seeds at the top of every training script (numpy, torch, python `random`).
-- **Data on the Modal Volume, not re-fetched:** Upload `etf_basket.parquet`, `sp500_20.parquet`, `sp500_100.parquet`, `cme_futures.parquet`, `lob_fi2010.parquet` to the `deep-finance-data` Volume once (with `modal volume put`). Training functions read from `/data/` (the Volume mount point) — they do not call FMP / Kaggle / read from the developer's local data lake.
+- **Data on the Modal Volume, not re-fetched:** Upload `etf_basket.parquet`, `sp500_20.parquet`, `sp500_100.parquet`, `cme_futures.parquet`, `lob_fi2010.parquet` to the `dl-research-data` Volume once (with `modal volume put`). Training functions read from `/data/` (the Volume mount point) — they do not call FMP / Kaggle / read from the developer's local data lake.
 - **Image bake:** the `Image` definition pins Python 3.11 and installs `requirements-train.txt`. Modal rebuilds the image only when the `Image` chain or `requirements-train.txt` changes (Modal hashes the image spec) — typical training runs reuse the cached image and start in <30 seconds.
 
 ### 7.3 Checkpoint metadata (sidecar JSON)
@@ -895,7 +895,7 @@ This is the heaviest of the three page-build phases. Deliverables are expanded t
 - `src/strategies/vol_targeting.py` — volatility-scaling logic with configurable σ_target (default 15%, matching the paper)
 - `src/models/deep_momentum.py` — both **MLP** and **LSTM** architectures, device-agnostic
 - `src/losses.py` — use existing `Neg_Sharpe` / `SharpeLoss` as-is. **Do not add** Average Returns, MSE, or Binary loss classes (out of scope per Page 1 spec).
-- `src/training/train_deep_momentum.py` — parameterized by `arch ∈ {MLP, LSTM}` with Sharpe loss fixed; declares a Modal `App` / `Image` / `Volume` / `@app.function(gpu="T4")` decorator at the top of the file (per §7.2 template); the device-agnostic `def train(...)` body runs locally on CPU for unit tests via `python -m src.training.train_deep_momentum`, and on Modal GPU for real training via `modal run src/training/train_deep_momentum.py --arch MLP` (and again with `--arch LSTM`). Intermediate checkpointing to the `deep-finance-data` Modal Volume; resume_from support
+- `src/training/train_deep_momentum.py` — parameterized by `arch ∈ {MLP, LSTM}` with Sharpe loss fixed; declares a Modal `App` / `Image` / `Volume` / `@app.function(gpu="T4")` decorator at the top of the file (per §7.2 template); the device-agnostic `def train(...)` body runs locally on CPU for unit tests via `python -m src.training.train_deep_momentum`, and on Modal GPU for real training via `modal run src/training/train_deep_momentum.py --arch MLP` (and again with `--arch LSTM`). Intermediate checkpointing to the `dl-research-data` Modal Volume; resume_from support
 - **2 pretrained checkpoints** committed: `mlp_sharpe.pt` and `lstm_sharpe.pt`, each with JSON sidecar
 - `scripts/run_backtests.py` extended to produce `data/backtests/momentum_results.parquet` containing daily returns for all 5 strategies (3 reference + MLP-Sharpe + LSTM-Sharpe) **both with and without** vol-scaling (10 rows total)
 - All four tabs of the Momentum page functional, including:
@@ -923,7 +923,7 @@ This is the heaviest of the three page-build phases. Deliverables are expanded t
 **Deliverables:**
 - `scripts/fetch_data.py` produces three parquets: `etf_basket.parquet`, `sp500_20.parquet`, `sp500_100.parquet`
 - `src/strategies/classical_portfolio.py` — Equal Weight, Min Variance, Max Diversification (ported), plus newly-added **Diversity-Weighted Portfolio (DWP)** and **Fixed Allocations 1–4** (ETF-only)
-- `src/models/deep_portfolio.py` + `src/training/train_deep_portfolio.py` — device-agnostic; `train_deep_portfolio.py` declares the Modal `App` / `Image` / `Volume` / `@app.function(gpu="T4")` decorator at the top (per §7.2 template), parameterized by `--universe ∈ {etfs, 20stock, 100stock}` via `@app.local_entrypoint()`. Three sequential Modal runs (one per universe) produce all three checkpoints; intermediate checkpoints land on the `deep-finance-data` Modal Volume
+- `src/models/deep_portfolio.py` + `src/training/train_deep_portfolio.py` — device-agnostic; `train_deep_portfolio.py` declares the Modal `App` / `Image` / `Volume` / `@app.function(gpu="T4")` decorator at the top (per §7.2 template), parameterized by `--universe ∈ {etfs, 20stock, 100stock}` via `@app.local_entrypoint()`. Three sequential Modal runs (one per universe) produce all three checkpoints; intermediate checkpoints land on the `dl-research-data` Modal Volume
 - **3 pretrained checkpoints** committed: `deep_portfolio_etfs.pt`, `deep_portfolio_20stock.pt`, `deep_portfolio_100stock.pt` + JSON sidecars
 - `scripts/run_backtests.py` extended to produce `data/backtests/portfolio_results.parquet` with rows for every (universe, condition, strategy) triple — see §8 for schema
 - All four tabs of the Portfolio page functional:
@@ -956,7 +956,7 @@ This is the heaviest of the three page-build phases. Deliverables are expanded t
 - `data/LOB_DATA_ATTRIBUTION.md` — full citation, license note, source links (Kaggle + Fairdata/Etsin)
 - `src/strategies/lob_baselines.py` — implementations of representative baselines (LDA, plain MLP, plain CNN) that will be re-run on FI-2010 to produce fresh numbers; the remaining baselines (RR, SLFN, BoF, TABL, MCSDA) are cited from the paper with explicit badging in Tab 4 tables
 - `src/models/deeplob.py` — DeepLOB architecture per Figure 3 of the paper: Conv1 (stride 1×2) → Conv2 (stride 1×2) → Conv3 → Inception → LSTM(64) → FC → **3-way softmax** output (single classification head, no regression head — the paper's task)
-- `src/training/train_deeplob.py` — declares the Modal `App` / `Image` / `Volume` / `@app.function(gpu="A10G")` decorator at the top (DeepLOB is the largest model — ~140k params, A10G is the right tier per §7.1 budget); handles Setup 1 (anchored forward, 9 folds) and Setup 2 (7/3 split) via a `--setup` flag and all 5 prediction horizons via a `--k` flag, both routed through `@app.local_entrypoint()`. `modal run src/training/train_deeplob.py --setup 2 --k 10` reads FI-2010 from the `deep-finance-data` Modal Volume and produces `deeplob_fi2010.pt` as the headline checkpoint
+- `src/training/train_deeplob.py` — declares the Modal `App` / `Image` / `Volume` / `@app.function(gpu="A10G")` decorator at the top (DeepLOB is the largest model — ~140k params, A10G is the right tier per §7.1 budget); handles Setup 1 (anchored forward, 9 folds) and Setup 2 (7/3 split) via a `--setup` flag and all 5 prediction horizons via a `--k` flag, both routed through `@app.local_entrypoint()`. `modal run src/training/train_deeplob.py --setup 2 --k 10` reads FI-2010 from the `dl-research-data` Modal Volume and produces `deeplob_fi2010.pt` as the headline checkpoint
 - `data/pretrained/deeplob_fi2010.pt` + JSON sidecar committed
 - `scripts/run_backtests.py` extended to produce `data/backtests/order_book_results.parquet` with rows for each (setup, k, method) triple — schema columns: `setup`, `k`, `method`, `accuracy`, `precision`, `recall`, `f1`, `reproduced` (bool — True for methods we reran, False for paper-cited values)
 - All four tabs of the Order Book page functional:
@@ -1200,7 +1200,7 @@ The final README should contain:
 5. **Quickstart** — `git clone && pip install -r requirements.txt && streamlit run streamlit_app.py`
 6. **Architecture diagram** — mermaid showing the data + deployment flow:
    - FMP → `scripts/fetch_data.py` (local) → parquet → repo
-   - Modal Volume `deep-finance-data` → `modal run src/training/train_*.py` (GPU container) → `.pt` checkpoints on Volume → `modal volume get` → repo
+   - Modal Volume `dl-research-data` → `modal run src/training/train_*.py` (GPU container) → `.pt` checkpoints on Volume → `modal volume get` → repo
    - GitHub `main` → GitHub Action → HF Space → live URL
 7. **Repo map** — abbreviated tree
 8. **How to refresh data** — for users with their own FMP keys

@@ -303,12 +303,12 @@ Training workflow (Modal):
   does not destroy progress. Modal containers are ephemeral; only the Volume
   persists.
 - The developer pulls the final `.pt` + JSON sidecar from the Volume via
-  `modal volume get deep-finance-data /pretrained ./data/pretrained/`,
+  `modal volume get dl-research-data /pretrained ./data/pretrained/`,
   commits them, pushes; the GitHub Action syncs to HF Space which serves
   them. The repo is the integration point between the Modal GPU environment
   and the live app.
-- Modal Volume lifecycle: create once with `modal volume create deep-finance-data`,
-  populate input data once with `modal volume put deep-finance-data
+- Modal Volume lifecycle: create once with `modal volume create dl-research-data`,
+  populate input data once with `modal volume put dl-research-data
   ~/data_lake/deep-finance/ /data`, re-populate when parquets are refreshed.
 
 ## Governance

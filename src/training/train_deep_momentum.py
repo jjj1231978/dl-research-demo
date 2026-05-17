@@ -53,7 +53,7 @@ try:
         .pip_install_from_requirements(str(_REPO_ROOT / "requirements-train.txt"))
         .add_local_python_source("src")
     )
-    volume = modal.Volume.from_name("deep-finance-data", create_if_missing=True)
+    volume = modal.Volume.from_name("dl-research-data", create_if_missing=True)
 
     @app.function(image=image, gpu="T4", volumes={"/data": volume}, timeout=3600)
     def train_remote(arch: str = "MLP", max_epochs: int = 200,
@@ -86,9 +86,9 @@ try:
         fname = f"{arch.lower()}_sharpe.pt"
         sidecar = f"{arch.lower()}_sharpe.json"
         print("To pull the checkpoint locally:")
-        print(f"  modal volume get deep-finance-data /pretrained/{fname} "
+        print(f"  modal volume get dl-research-data /pretrained/{fname} "
               f"./data/pretrained/{fname}")
-        print(f"  modal volume get deep-finance-data /pretrained/{sidecar} "
+        print(f"  modal volume get dl-research-data /pretrained/{sidecar} "
               f"./data/pretrained/{sidecar}")
 
 except ImportError:

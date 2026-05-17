@@ -45,7 +45,7 @@ Local dev and Modal container also 3.11.
 - `data/pretrained/lstm_sharpe.pt` + `lstm_sharpe.json` sidecar.
 - `data/backtests/momentum_results.parquet` — 5 strategies × 2
   vol-scaling conditions × per-asset daily returns, schema per FR-013.
-- Modal Volume `deep-finance-data` (already created in Phase 0 quickstart)
+- Modal Volume `dl-research-data` (already created in Phase 0 quickstart)
   — input data + intermediate training checkpoints.
 - FMP per-ticker cache `~/data_lake/fmp/deep-finance/` — unchanged from
   Phase 0; Phase 1 does not add FMP fetches.

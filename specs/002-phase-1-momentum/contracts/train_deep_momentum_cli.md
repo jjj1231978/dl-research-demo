@@ -18,7 +18,7 @@ image = (
     .pip_install_from_requirements("requirements-train.txt")
     .add_local_python_source("src")
 )
-volume = modal.Volume.from_name("deep-finance-data", create_if_missing=True)
+volume = modal.Volume.from_name("dl-research-data", create_if_missing=True)
 
 @app.function(image=image, gpu="T4", volumes={"/data": volume}, timeout=3600)
 def train_remote(arch: str = "MLP", max_epochs: int = 200,
@@ -38,7 +38,7 @@ def main(arch: str = "MLP", max_epochs: int = 200,
     print(f"[train_deep_momentum] arch={arch} metrics={metrics}")
     print(f"To pull the checkpoint locally:")
     fname = f"{arch.lower()}_sharpe.pt"
-    print(f"  modal volume get deep-finance-data /pretrained/{fname} ./data/pretrained/{fname}")
+    print(f"  modal volume get dl-research-data /pretrained/{fname} ./data/pretrained/{fname}")
 
 # ── Bottom: device-agnostic training body ──
 def train(data_dir, arch, device, checkpoint_dir, max_epochs=200,

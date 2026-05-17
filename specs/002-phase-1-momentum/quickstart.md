@@ -16,10 +16,10 @@ reviewer can validate the feature.
 # Modal CLI on the developer's machine (NOT in requirements.txt)
 pip install modal
 modal token new                                # opens browser; writes ~/.modal.toml
-modal volume create deep-finance-data           # idempotent if Phase 0 already created it
+modal volume create dl-research-data           # idempotent if Phase 0 already created it
 
 # Populate the Modal Volume with the just-fetched parquets
-modal volume put deep-finance-data \
+modal volume put dl-research-data \
        "$DEEP_FINANCE_DATA_DIR/cme_futures.parquet" \
        /cme_futures.parquet
 ```
@@ -93,10 +93,10 @@ Same shape; produces `lstm_sharpe.pt`.
 ### Pull checkpoints back to the repo
 
 ```bash
-modal volume get deep-finance-data /pretrained/mlp_sharpe.pt   ./data/pretrained/mlp_sharpe.pt
-modal volume get deep-finance-data /pretrained/mlp_sharpe.json ./data/pretrained/mlp_sharpe.json
-modal volume get deep-finance-data /pretrained/lstm_sharpe.pt  ./data/pretrained/lstm_sharpe.pt
-modal volume get deep-finance-data /pretrained/lstm_sharpe.json ./data/pretrained/lstm_sharpe.json
+modal volume get dl-research-data /pretrained/mlp_sharpe.pt   ./data/pretrained/mlp_sharpe.pt
+modal volume get dl-research-data /pretrained/mlp_sharpe.json ./data/pretrained/mlp_sharpe.json
+modal volume get dl-research-data /pretrained/lstm_sharpe.pt  ./data/pretrained/lstm_sharpe.pt
+modal volume get dl-research-data /pretrained/lstm_sharpe.json ./data/pretrained/lstm_sharpe.json
 git add data/pretrained/*.pt data/pretrained/*.json
 git commit -m "feat(phase-1): train mlp_sharpe + lstm_sharpe (Modal T4)"
 ```

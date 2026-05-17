@@ -105,6 +105,8 @@ def _deep_position(strategy: str, prices, checkpoint_path: Path):
     feats += [macd_signal(prices, s, l) for s, l in ((8, 24), (16, 48), (32, 96))]
 
     positions = pd.DataFrame(np.nan, index=prices.index, columns=contracts)
+    positions.columns.name = "contract"  # preserve axis-name through stack()
+    positions.index.name = "date"
     with torch.no_grad():
         for contract in contracts:
             feat_mat = np.column_stack([f[contract].to_numpy() for f in feats])

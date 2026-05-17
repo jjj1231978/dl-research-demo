@@ -1,0 +1,31 @@
+{
+  "trained_on": "2026-05-17",
+  "trained_with": "Modal T4 (image im-hDB3ZNSrvLxbISTHCVcCUI)",
+  "torch_version": "2.12.0+cu130",
+  "modal_app": "deep-finance-train-momentum",
+  "arch": "MLP",
+  "data_range": {
+    "train_start": "2010-06-06",
+    "train_end": "2019-12-31",
+    "test_start": "2020-01-01",
+    "test_end": "2026-05-04"
+  },
+  "split": "chronological_60_40",
+  "hyperparameters": {
+    "hidden_size": 20,
+    "lr": 0.001,
+    "batch_size": 128,
+    "epochs_trained": 59,
+    "patience": 25,
+    "min_delta": 0.0001,
+    "seq_length": 60,
+    "n_features": 8
+  },
+  "final_metrics": {
+    "val_neg_sharpe": -0.008069249801337719,
+    "test_annual_sharpe": 0.12810205908645284,
+    "test_max_drawdown": 0.42984622716903687,
+    "test_calmar": 0.025143099099580287
+  },
+  "git_commit": ""
+}

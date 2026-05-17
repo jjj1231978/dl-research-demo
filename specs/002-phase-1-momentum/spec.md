@@ -93,7 +93,7 @@ the Modal Volume via `modal volume get`.
 **Acceptance Scenarios**:
 
 1. **Given** the developer has authenticated with Modal and the
-   `deep-finance-data` Modal Volume is populated with `cme_futures.parquet`,
+   `dl-research-data` Modal Volume is populated with `cme_futures.parquet`,
    **When** they run `modal run src/training/train_deep_momentum.py
    --arch MLP --max-epochs 5`, **Then** the function executes on a T4
    container, prints per-epoch loss, writes the checkpoint to the Volume,
