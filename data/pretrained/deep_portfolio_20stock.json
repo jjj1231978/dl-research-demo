@@ -1,0 +1,33 @@
+{
+  "trained_on": "2026-05-17",
+  "trained_with": "Modal T4 (image im-hDB3ZNSrvLxbISTHCVcCUI)",
+  "torch_version": "2.12.0+cu130",
+  "modal_app": "deep-finance-train-portfolio",
+  "arch": "DeepPortfolioMLP",
+  "universe": "20stock",
+  "n_assets": 20,
+  "data_range": {
+    "train_start": "2006-06-30",
+    "train_end": "2019-12-31",
+    "test_start": "2020-01-01",
+    "test_end": "2026-05-15"
+  },
+  "split": "chronological_test_2020",
+  "hyperparameters": {
+    "hidden_size": 64,
+    "lr": 0.001,
+    "batch_size_days": 32,
+    "epochs_trained": 31,
+    "patience": 25,
+    "min_delta": 0.0001,
+    "lookback": 50,
+    "aggregation": "per_day_portfolio_sum"
+  },
+  "final_metrics": {
+    "val_neg_sharpe": -0.05806368961930275,
+    "test_annual_sharpe": 0.9220301311263381,
+    "test_max_drawdown": 0.24717992544174194,
+    "test_calmar": 0.8589700527744092
+  },
+  "git_commit": ""
+}

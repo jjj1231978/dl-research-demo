@@ -1,0 +1,36 @@
+{
+  "universe": "sp500_20",
+  "fetched_at": "2026-05-17T22:24:01Z",
+  "fmp_endpoint_set": [
+    "historical-price-eod/full",
+    "shares-float"
+  ],
+  "shares_outstanding_available": true,
+  "row_count": 100000,
+  "symbols": [
+    "AAPL",
+    "ABT",
+    "AEP",
+    "AXP",
+    "BAC",
+    "CI",
+    "GD",
+    "GE",
+    "HON",
+    "MMM",
+    "MO",
+    "MRK",
+    "NEM",
+    "NKE",
+    "NSC",
+    "PFE",
+    "PG",
+    "PTC",
+    "SNA",
+    "SO"
+  ],
+  "date_range": {
+    "min": "2006-06-30",
+    "max": "2026-05-15"
+  }
+}
