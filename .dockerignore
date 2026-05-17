@@ -1,0 +1,23 @@
+# Keep the build context small — papers, notebooks, dev artifacts, secrets,
+# spec docs, and tests don't need to land inside the container.
+
+.git/
+.github/
+papers/
+notebooks/
+specs/
+tests/
+.streamlit/secrets.toml
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.DS_Store
+*.swp

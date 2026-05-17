@@ -1,0 +1,6 @@
+# Baked into the Modal training image via
+# modal.Image.pip_install_from_requirements("requirements-train.txt").
+# Consumed only by src/training/train_*.py in Phases 1–3; never installed in
+# the production HF Docker image.
+
+torch

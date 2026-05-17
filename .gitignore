@@ -1,0 +1,54 @@
+# Phase 0 — Skeleton & Data Foundation
+
+# Local secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Streamlit local secrets
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+dist/
+build/
+*.egg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints under dev — committed checkpoints go in data/pretrained/ explicitly
+*.pt
+*.pth
+!data/pretrained/*.pt
+!data/pretrained/*.pth
+
+# Modal local state (just in case)
+.modal/

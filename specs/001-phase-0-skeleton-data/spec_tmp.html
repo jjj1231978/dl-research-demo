@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>spec.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="feature-specification-phase-0--skeleton--data-foundation">Feature Specification: Phase 0 — Skeleton &amp; Data Foundation</h1>
+<p><strong>Feature Branch</strong>: <code>001-phase-0-skeleton-data</code></p>
+<p><strong>Created</strong>: 2026-05-16</p>
+<p><strong>Status</strong>: Draft</p>
+<p><strong>Input</strong>: User description (paraphrased): Deliver the repository scaffold, data
+layer, landing page, and canonical utility module adoption that every later
+phase (Momentum, Portfolio, Order Book, Deployment) depends on. First-clone
+usability is the headline outcome: <code>streamlit run streamlit_app.py</code> must work
+with no API key and no parquet files, falling back to the bundled CSVs that
+ship in the repo.</p>
+<h2 id="clarifications">Clarifications</h2>
+<h3 id="session-2026-05-16">Session 2026-05-16</h3>
+<ul>
+<li>Q: Which ETF should stand in for the paper's non-tradable VIX in the ETF basket? → A: <strong>VIXY</strong> (ProShares VIX Short-Term Futures ETF). The ETF basket is therefore the 4-ticker set <code>{VTI, AGG, DBC, VIXY}</code>. Inception of VIXY (2011) bounds the basket's earliest usable date.</li>
+<li>Q: How should the 100-stock S&amp;P 500 universe be constructed? → A: <strong>Claude Code proposes a sector-balanced list of 100 historical S&amp;P 500 constituents (10 names × 10 GICS sectors, drawn from FMP's historical constituents endpoint to avoid survivorship bias); the developer reviews and confirms the proposal before <code>scripts/fetch_data.py</code> is run.</strong> Confirmation is a Phase-0 milestone and gates the third parquet output.</li>
+<li>Q: If FMP's shares-outstanding endpoint is unavailable on the developer's tier, how should <code>scripts/fetch_data.py</code> behave? → A: <strong>Warn-and-skip</strong>. The script logs a clear &quot;shares-outstanding endpoint unavailable — DWP benchmark will be unavailable in Phase 2&quot; notice, omits the <code>shares_outstanding</code> column from the parquets, and exits zero. The Phase 2 Portfolio page renders DWP as N/A with the same notice.</li>
+</ul>
+<h2 id="user-scenarios--testing-mandatory">User Scenarios &amp; Testing <em>(mandatory)</em></h2>
+<h3 id="user-story-1--researcher-clones-the-repo-and-runs-the-app-priority-p1">User Story 1 — Researcher clones the repo and runs the app (Priority: P1)</h3>
+<p>A researcher who arrived from one of the three papers' arXiv pages clones the
+GitHub repo, follows the README quickstart, and within minutes sees a working
+landing page that summarises the three papers and offers a navigation entry
+into each. They have no API key, no GPU, and have never seen this project
+before. The app must boot end-to-end on their laptop using only the data that
+ships in the repo, and must make the data provenance unambiguous (a visible
+notice tells them they are viewing fallback data and how to upgrade).</p>
+<p><strong>Why this priority</strong>: Without first-clone usability, the entire showcase
+narrative is unreachable. The landing page is the artifact every later page is
+navigated from; the fallback-data path is the demo that runs on every fresh
+clone and in CI. It is the project's MVP — even with no per-paper pages built
+yet, this story alone proves the skeleton, the data layer, and the multi-page
+shell all work.</p>
+<p><strong>Independent Test</strong>: From a clean checkout with no FMP key and no parquet
+files, install the production dependencies, start the Streamlit app, and
+confirm the landing page renders, the three paper cards are visible and
+navigable, the Common Thread section is present, and the data-status sidebar
+shows a notice that bundled-CSV fallback data is in use.</p>
+<p><strong>Acceptance Scenarios</strong>:</p>
+<ol>
+<li><strong>Given</strong> a fresh clone of the repository with bundled CSVs present but no
+parquet files and no <code>FMP_API_KEY</code> environment variable, <strong>When</strong> the
+researcher runs the production install and starts the Streamlit app,
+<strong>Then</strong> the landing page renders without error within 30 seconds of the
+first request, displays the title and tagline, and shows three clickable
+paper cards.</li>
+<li><strong>Given</strong> the running landing page, <strong>When</strong> the researcher clicks any of
+the three paper cards or selects a page from the multi-page navigation,
+<strong>Then</strong> the corresponding placeholder page loads without error (page
+content may be a stub — that is later phases' deliverable).</li>
+<li><strong>Given</strong> the running landing page in fallback-data mode, <strong>When</strong> the
+researcher looks at the sidebar, <strong>Then</strong> they see a clearly worded notice
+that bundled-CSV fallback data is in use along with instructions on how to
+obtain live parquet data.</li>
+</ol>
+<hr>
+<h3 id="user-story-2--developer-refreshes-market-data-from-fmp-priority-p2">User Story 2 — Developer refreshes market data from FMP (Priority: P2)</h3>
+<p>The developer has an FMP Premium subscription. They run the one-shot fetch
+script locally, which pulls historical EOD prices for three universes (an ETF
+basket, the existing 20-stock list, and a sector-balanced 100-stock S&amp;P 500
+selection drawn from historical constituents to avoid survivorship bias) and
+writes three named parquet files into <code>data/</code>. The next time they start the
+app, the landing page silently switches from fallback CSVs to the parquets and
+the data-status sidebar reflects the new refresh date.</p>
+<p><strong>Why this priority</strong>: Phase 0 ends with parquets committed to the repo so the
+deployed Hugging Face Space serves real data, not bundled CSVs. The fetch
+script is also what the Portfolio page in Phase 2 will consume; getting it
+right here de-risks the Phase 2 acceptance criteria.</p>
+<p><strong>Independent Test</strong>: With a valid FMP key in <code>.env</code>, run the fetch script and
+verify three named parquets appear in <code>data/</code>. Restart the app; confirm the
+data-status sidebar shows the new refresh date and no fallback notice.</p>
+<p><strong>Acceptance Scenarios</strong>:</p>
+<ol>
+<li><strong>Given</strong> a valid <code>FMP_API_KEY</code> in <code>.env</code>, <strong>When</strong> the developer runs the
+fetch script, <strong>Then</strong> three parquet files (one per universe) appear in
+<code>data/</code> and the script exits cleanly with a summary line per universe
+(universe name, row count, date range covered).</li>
+<li><strong>Given</strong> parquet files exist in <code>data/</code>, <strong>When</strong> the app is restarted,
+<strong>Then</strong> the landing page's data-status sidebar shows the parquet refresh
+date and the fallback notice is absent.</li>
+<li><strong>Given</strong> the FMP key is missing or invalid, <strong>When</strong> the developer runs
+the fetch script, <strong>Then</strong> the script exits with a clear error message
+identifying which credential is missing or rejected; no partial parquet
+files are written.</li>
+</ol>
+<hr>
+<h3 id="user-story-3--downstream-phase-author-lands-a-metric-in-tab-4-priority-p3">User Story 3 — Downstream-phase author lands a metric in Tab 4 (Priority: P3)</h3>
+<p>An author working on a per-paper page (Momentum, Portfolio, or Order Book in
+Phases 1–3) needs to populate a &quot;Tab 4&quot; master metrics table with values like
+Sortino ratio, maximum drawdown, and Calmar ratio that are not in the
+developer's starter <code>metrics.py</code>. Phase 0 extends the existing <code>report_metrics</code>
+function so those values are available — and verified — before any later phase
+depends on them. A unit test against a synthetic returns series proves each
+new metric matches its mathematical definition; an integration test proves the
+landing page still renders after the extension.</p>
+<p><strong>Why this priority</strong>: Every per-paper page in Phases 1–3 will consume these
+metric values in its headline Tab 4 table. Shipping them without unit-test
+backing risks landing bad numbers on the public showcase; shipping them
+without preserving the existing keys risks breaking the reference notebooks
+that already import them. This story locks both gates in place before any
+page-builder needs the function.</p>
+<p><strong>Independent Test</strong>: Run the unit-test suite against the synthetic returns
+series specified in the brief and confirm every new metric key produces a
+value consistent with its formula and within the tolerance bands the brief
+documents; confirm the existing keys are unchanged. Run the landing-page
+integration test against <code>streamlit.testing.v1.AppTest</code> to confirm the
+extended module does not break the landing-page render.</p>
+<p><strong>Acceptance Scenarios</strong>:</p>
+<ol>
+<li><strong>Given</strong> the extended <code>report_metrics</code> function and a synthetic returns
+series generated as <code>np.random.normal(0.0005, 0.01, 1000)</code> with a fixed
+seed, <strong>When</strong> the unit test runs, <strong>Then</strong> the function returns a
+dictionary containing all original keys (<code>annual_ret</code>, <code>annual_std</code>,
+<code>annual_sharpe</code>) unchanged plus all new keys (<code>downside_dev</code>, <code>sortino</code>,
+<code>max_drawdown</code>, <code>calmar</code>, <code>pct_positive</code>, <code>avg_p_over_l</code>) with values
+matching their formulas to floating-point tolerance.</li>
+<li><strong>Given</strong> the landing page is rendered under <code>AppTest</code> in each of the four
+combinations of {parquet present, parquet absent} × {FMP key set, FMP key
+unset}, <strong>When</strong> the integration test asserts no exception was raised,
+<strong>Then</strong> all four combinations pass.</li>
+<li><strong>Given</strong> a reference notebook under <code>notebooks/reference/</code> that imports
+<code>report_metrics</code> and reads the original three keys, <strong>When</strong> the notebook
+runs after the extension, <strong>Then</strong> the same numeric values are returned for
+those original keys as before the extension (regression check).</li>
+</ol>
+<hr>
+<h3 id="edge-cases">Edge Cases</h3>
+<ul>
+<li><strong>No internet during install</strong>: <code>pip install -r requirements.txt</code> must
+succeed offline once the wheel cache exists; the production install pulls
+PyTorch from the CPU-only wheel index, not the default GPU-augmented index.</li>
+<li><strong>Parquet present but corrupted</strong>: the loader must surface a clear error
+rather than silently re-fall-back to CSVs (otherwise a corrupted parquet
+would be invisible to the operator).</li>
+<li><strong>Bundled CSV missing or corrupted</strong>: the loader must surface a clear error
+before the page attempts to render charts on missing data; the app should
+not crash inside a chart-rendering call.</li>
+<li><strong>FMP key set but rate-limited mid-fetch</strong>: the fetch script must report the
+symbol that failed, leave previously-written parquet files in place, and
+exit non-zero so the operator can re-run only the missing universes.</li>
+<li><strong>Researcher mistakenly drops a non-parquet file into <code>data/</code> with a
+parquet name</strong>: the loader must give a clear &quot;expected parquet, got X&quot;
+message rather than a low-level binary-format stack trace.</li>
+<li><strong>20-stock CSV ticker list drifts from the universe definition</strong>: a
+consistency check at load time should detect the mismatch and fail loudly.</li>
+</ul>
+<h2 id="requirements-mandatory">Requirements <em>(mandatory)</em></h2>
+<h3 id="functional-requirements">Functional Requirements</h3>
+<p><strong>Repository scaffold</strong></p>
+<ul>
+<li><strong>FR-001</strong>: The repository MUST contain the directory and file layout
+specified in §5 of <code>Project_brief.md</code> at the root level; every directory
+listed there MUST exist (placeholder content is acceptable for files whose
+body is delivered by later phases).</li>
+<li><strong>FR-002</strong>: A multi-page Streamlit application MUST be installable from the
+repository root; the landing page entry point and three per-paper page
+placeholders MUST be reachable through Streamlit's native multi-page
+navigation.</li>
+</ul>
+<p><strong>Canonical utility adoption</strong></p>
+<ul>
+<li><strong>FR-003</strong>: The developer's four canonical files (Sharpe loss module, early
+stopper, PyTorch dataset wrapper, metrics) MUST be copied verbatim from the
+existing <code>Utilis/</code> directory into <code>src/</code> with identifier names preserved
+exactly (<code>Neg_Sharpe</code>, <code>SharpeLoss</code>, <code>EarlyStopping</code>, <code>MyDataset</code>,
+<code>report_metrics</code>).</li>
+<li><strong>FR-004</strong>: The <code>report_metrics(ret)</code> function MUST be extended with six
+additional keys (<code>downside_dev</code>, <code>sortino</code>, <code>max_drawdown</code>, <code>calmar</code>,
+<code>pct_positive</code>, <code>avg_p_over_l</code>) per the formulas in §13.7 of the brief,
+while preserving the three original keys (<code>annual_ret</code>, <code>annual_std</code>,
+<code>annual_sharpe</code>) byte-for-byte against a fixed-seed synthetic returns series.</li>
+</ul>
+<p><strong>Universe definitions</strong></p>
+<ul>
+<li><strong>FR-005</strong>: The system MUST expose machine-readable definitions for five
+named universes — CME futures, toy single-asset (AAPL), ETF basket,
+20-stock, 100-stock S&amp;P 500 — each carrying at minimum a human-readable
+name, the list of member identifiers (where statically known), the data
+source name, and which page(s) consume it. The ETF basket's member list is
+<code>{VTI, AGG, DBC, VIXY}</code> per the OD-1 clarification.</li>
+<li><strong>FR-006</strong>: The 20-stock universe ticker list MUST be drawn directly from
+the bundled <code>portfolio_data.csv</code> header to guarantee parity with the
+existing data file.</li>
+</ul>
+<p><strong>Data-loading layer</strong></p>
+<ul>
+<li><strong>FR-007</strong>: The data-loading layer MUST attempt to load a universe's parquet
+file first and MUST fall back to the corresponding bundled CSV when the
+parquet is absent.</li>
+<li><strong>FR-008</strong>: When falling back from parquet to CSV, the data-loading layer
+MUST render a visible notice in the Streamlit UI naming the universe, the
+reason for the fallback, and the operator action required to upgrade
+(running the fetch script).</li>
+<li><strong>FR-009</strong>: When a parquet file is present but unreadable (corrupted,
+schema-mismatched, wrong file type), the loader MUST surface a clear error
+to the operator rather than silently re-falling-back to a CSV.</li>
+</ul>
+<p><strong>FMP fetch script</strong></p>
+<ul>
+<li><strong>FR-010</strong>: A one-shot fetch script MUST produce three named parquet files
+in <code>data/</code> (ETF basket, 20-stock, 100-stock S&amp;P 500) using the developer's
+FMP credential read from a local environment file. The 100-stock parquet
+MUST be written only after the developer has confirmed the
+Claude-Code-proposed 100-ticker list (per OD-2); until then, the script
+MUST treat the 100-stock universe as unconfigured and skip that parquet
+with a clear &quot;100-stock universe pending confirmation&quot; notice.</li>
+<li><strong>FR-011</strong>: The fetch script MUST use historical S&amp;P 500 constituent data
+when assembling the 100-stock universe so a ticker present today but absent
+in 2010 contributes no data points to a 2010-era backtest (no survivorship
+bias).</li>
+<li><strong>FR-012</strong>: The fetch script MUST attempt to pull each universe's per-symbol
+shares-outstanding history (needed for the Diversity-Weighted Portfolio
+benchmark in Phase 2). If the FMP tier in use does not expose this endpoint
+(per OD-3), the script MUST log a clear &quot;shares-outstanding endpoint
+unavailable — DWP benchmark will be unavailable in Phase 2&quot; notice, omit
+the <code>shares_outstanding</code> column from the affected parquets, and exit zero.
+The presence or absence of the <code>shares_outstanding</code> column MUST be
+detectable downstream so Phase 2 can render DWP as N/A with the same notice.</li>
+<li><strong>FR-013</strong>: The fetch script MUST exit non-zero with a clear, operator-
+actionable error message if the FMP credential is missing or rejected; it
+MUST NOT write a partial parquet file in this case. (Note: a missing
+shares-outstanding endpoint is <strong>not</strong> a credential failure and MUST NOT
+trigger this path; see FR-012.)</li>
+</ul>
+<p><strong>Landing page</strong></p>
+<ul>
+<li><strong>FR-014</strong>: The landing page MUST display the application title, a tagline
+mentioning the Oxford-Man Institute and the three papers, and three large
+paper cards (one per paper) with the paper title, authors, year, venue,
+arXiv link, a one-paragraph abstract, and a navigation link to the
+corresponding per-paper page.</li>
+<li><strong>FR-015</strong>: The landing page MUST include a &quot;Common Thread&quot; section
+(approximately two short paragraphs) explaining the unifying methodological
+move across the three papers: bypass the prediction step, output the
+decision directly, optimise the financial objective end-to-end via gradient
+descent.</li>
+<li><strong>FR-016</strong>: The landing page sidebar MUST display the parquet refresh date
+(or a fallback-mode indicator when no parquets exist), a link to the GitHub
+repository, and an optional FMP-key text input for the per-session
+&quot;Refresh data&quot; workflow.</li>
+</ul>
+<p><strong>Streamlit runtime</strong></p>
+<ul>
+<li><strong>FR-017</strong>: The Streamlit server MUST be configured to bind to port 7860 and
+address <code>0.0.0.0</code> in headless mode with usage-stats gathering disabled (so
+the same configuration runs locally and on Hugging Face Spaces without
+changes).</li>
+</ul>
+<p><strong>Dependency management</strong></p>
+<ul>
+<li><strong>FR-018</strong>: The production dependency file MUST install PyTorch from the
+CPU-only wheel index so the production runtime never pulls GPU CUDA
+libraries.</li>
+<li><strong>FR-019</strong>: A separate training-only dependency file MUST exist for the
+Colab orchestrator notebooks (its content grows in later phases; Phase 0
+ships a minimal seed file with GPU-enabled PyTorch).</li>
+</ul>
+<p><strong>Tests</strong></p>
+<ul>
+<li><strong>FR-020</strong>: A unit-test suite MUST cover the extended <code>report_metrics</code>
+function: each new key MUST be cross-checked against its formula on a
+fixed-seed synthetic returns series, and the three original keys MUST be
+unchanged against the same fixture (regression guard).</li>
+<li><strong>FR-021</strong>: An integration-test suite MUST verify the landing page renders
+without exception under <code>streamlit.testing.v1.AppTest</code> in all four
+combinations of {parquet present, parquet absent} × {FMP key set, FMP key
+unset}.</li>
+</ul>
+<h3 id="key-entities">Key Entities</h3>
+<ul>
+<li><strong>Universe</strong>: Named collection of tradeable instruments. Attributes: name
+(e.g. &quot;etf_basket&quot;), member identifiers (where statically known), data
+source (FMP / CME data lake / Kaggle / local CSV), human-readable label,
+list of pages that consume it.</li>
+<li><strong>DataSnapshot</strong>: A point-in-time materialisation of a universe to disk.
+Attributes: universe reference, on-disk file path, source kind (parquet vs
+CSV), refresh timestamp, row count, date-range covered. Surfaced in the
+landing page sidebar.</li>
+<li><strong>MetricsReport</strong>: The dictionary returned by <code>report_metrics(ret)</code>.
+Attributes: nine numeric keys — three original (<code>annual_ret</code>, <code>annual_std</code>,
+<code>annual_sharpe</code>) and six new (<code>downside_dev</code>, <code>sortino</code>, <code>max_drawdown</code>,
+<code>calmar</code>, <code>pct_positive</code>, <code>avg_p_over_l</code>). Backward-compatibility of the
+three original keys is a non-negotiable invariant.</li>
+</ul>
+<h2 id="success-criteria-mandatory">Success Criteria <em>(mandatory)</em></h2>
+<h3 id="measurable-outcomes">Measurable Outcomes</h3>
+<ul>
+<li><strong>SC-001</strong>: A researcher with a fresh clone, Python 3.11, and no API
+credentials can go from <code>git clone</code> to a rendered landing page in their
+browser in under 5 minutes (one install command, one start command, page
+renders within 30 seconds of the first request).</li>
+<li><strong>SC-002</strong>: 100% of the three paper cards on the landing page are visible
+and route a click to the correct per-paper page placeholder; the Common
+Thread section is present and contains the unifying-move explanation.</li>
+<li><strong>SC-003</strong>: After running the FMP fetch script with a valid credential, the
+landing-page data-status sidebar reflects the new refresh date on the next
+app start without any further operator action; the fallback notice
+disappears for every universe whose parquet was produced. The 100-stock
+universe is exempt until OD-2 confirmation is in hand; until then its row
+in the sidebar continues to show &quot;pending confirmation&quot; without blocking
+the rest of the page.</li>
+<li><strong>SC-004</strong>: The extended metrics function passes its unit tests against a
+fixed-seed <code>np.random.normal(0.0005, 0.01, 1000)</code> series within the
+tolerance bands documented in §13.7 of the brief: Sharpe ≈ 0.79, max
+drawdown ∈ [0.05, 0.20], hit rate ≈ 0.52, and every new key returns a
+finite numeric value.</li>
+<li><strong>SC-005</strong>: 100% of the four (parquet × FMP-key) combinations pass the
+landing-page integration test under <code>streamlit.testing.v1.AppTest</code>.</li>
+<li><strong>SC-006</strong>: A second engineer reviewing the repository can locate any file
+listed in §5 of the brief at its specified path without searching — the
+scaffold is layout-conformant.</li>
+<li><strong>SC-007</strong>: When the data loader falls back to CSV, the visible fallback
+notice names the universe and the operator action required to upgrade,
+verified by a copy-text inspection of the rendered UI.</li>
+</ul>
+<h2 id="assumptions">Assumptions</h2>
+<ul>
+<li>Python 3.11 is the target interpreter (per the project constitution); no
+Python 3.10 or 3.12 compatibility is required at this phase.</li>
+<li>The developer's existing <code>Utilis/</code> files are authoritative and will be moved
+to <code>src/</code> without modification beyond the explicit extension of
+<code>metrics.py</code>.</li>
+<li>The 20-stock ticker list AAPL/ABT/AEP/AXP/BAC/CI/GD/GE/HON/MMM/MO/MRK/NEM/
+NKE/NSC/PFE/PG/PTC/SNA/SO is final and need not be re-confirmed (per brief
+§12 item 4).</li>
+<li>The bundled CSV at <code>Data/sample_portfolio_data.csv</code> is the source of truth
+for the 20-stock ticker header and will be relocated to
+<code>data/portfolio_data.csv</code> (and <code>Data/aapl.csv</code> to <code>data/aapl.csv</code>) during
+the scaffold step; existing filename casing differences are intentional and
+to be normalised.</li>
+<li>The FMP Premium tier in use supports bulk historical EOD prices and the
+historical S&amp;P 500 constituents endpoint. Shares-outstanding access is
+tier-dependent; per the OD-3 clarification, the fetch script treats a
+missing shares-outstanding endpoint as a warn-and-skip event (not a
+failure) and omits the column from the affected parquets.</li>
+<li>Phase 0 cannot ship the 100-stock parquet until the developer confirms the
+Claude-Code-proposed sector-balanced ticker list (OD-2). Until confirmation
+is in hand, <code>scripts/fetch_data.py</code> skips that parquet with a clear notice.</li>
+<li>Hugging Face Spaces deployment configuration and the GitHub→HF sync workflow
+are out of scope for Phase 0; the <code>.streamlit/config.toml</code> written now will
+be reused by Phase 4 without further changes.</li>
+<li>The 100-stock universe is materialised as committed parquet data (no live
+refresh on the production runtime) once Phase 0 ships; subsequent refreshes
+are a developer-local operation.</li>
+</ul>
+<h2 id="out-of-scope">Out of Scope</h2>
+<ul>
+<li>Per-paper page implementations (Tabs 2/3/4, models, backtests, math/code
+panels) — these are Phases 1–3 deliverables.</li>
+<li>The CME futures fetch script (<code>scripts/fetch_futures.py</code>) and the LOB
+Kaggle fetch script (<code>scripts/fetch_lob_fi2010.py</code>) — depend on
+developer-local data sources and ship in Phases 1 and 3 respectively.</li>
+<li>Pretrained <code>.pt</code> checkpoints — produced on Colab Pro during Phases 1–3.</li>
+<li>Dockerfile correctness verification, the GitHub→HF Space sync workflow,
+README polish, hero screenshot — Phase 4 deliverables.</li>
+<li>The <code>run_backtests.py</code> script body — extended page by page, starts empty in
+Phase 0.</li>
+<li>Hyperparameter sweeps, model selection, or any retraining of the existing
+notebooks' models in this phase.</li>
+</ul>
+<h2 id="open-decisions">Open Decisions</h2>
+<p>All three Phase-0-blocking decisions identified during specification are
+resolved in the <code>## Clarifications</code> section above (OD-1, OD-2, OD-3,
+session 2026-05-16). The brief's §12 lists eight further open decisions that
+do not affect Phase 0 scope; they will be re-surfaced as <code>[NEEDS CLARIFICATION]</code> markers in the specs for Phases 1–4 where they are blocking.</p>
+
+</body>
+</html>

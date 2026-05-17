@@ -1,0 +1,2 @@
+# apt packages required by the HF Space Docker image.
+# Phase 0 needs none; later phases may add (e.g., libgomp1 if torch requires).
