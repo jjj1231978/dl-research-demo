@@ -1,0 +1,31 @@
+{
+  "universe": "cme_futures",
+  "fetched_at": "2026-05-17T15:45:19Z",
+  "source": "/home/jianj/data_lake/databento/futures/L0/ohlcv-1d/ohlcv-1d_GLBX.MDP3_bcom_2010-06-06_2026-05-05.parquet",
+  "roots": [
+    "ALI",
+    "CB",
+    "CL",
+    "GC",
+    "HE",
+    "HG",
+    "HO",
+    "LE",
+    "NG",
+    "RB",
+    "SI",
+    "ZC",
+    "ZL",
+    "ZM",
+    "ZNC",
+    "ZS",
+    "ZW"
+  ],
+  "row_count": 67958,
+  "date_range": {
+    "min": "2010-06-06",
+    "max": "2026-05-04"
+  },
+  "roll_offset_bdays": -5,
+  "position": 0
+}
