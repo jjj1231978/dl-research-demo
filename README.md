@@ -1,8 +1,22 @@
+---
+title: Deep Finance Showcase
+emoji: 📈
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 # Deep Finance Showcase
 
 Interactive Streamlit application showcasing three Oxford-Man Institute papers
 applying deep learning to canonical quantitative-finance problems
 (time-series momentum, portfolio optimization, limit order books).
+
+[![Live demo](https://img.shields.io/badge/🤗-Spaces-yellow)](https://huggingface.co/spaces/jjj1231978/dl-research-demo)
+[![GitHub](https://img.shields.io/badge/GitHub-source-blue)](https://github.com/jjj1231978/dl-research-demo)
 
 > **Phase 0 minimal README** — full README with hero screenshot, live-demo
 > badge, citation block, and deployment instructions lands in Phase 4. For
