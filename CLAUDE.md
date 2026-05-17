@@ -1,9 +1,11 @@
 <!-- SPECKIT START -->
-**Active feature**: `001-phase-0-skeleton-data` (Phase 0 — Skeleton & Data Foundation)
+**Active feature**: `002-phase-1-momentum` (Phase 1 — Momentum Page, Lim et al. 2019)
 
-**Plan**: [specs/001-phase-0-skeleton-data/plan.md](specs/001-phase-0-skeleton-data/plan.md)
+**Plan**: [specs/002-phase-1-momentum/plan.md](specs/002-phase-1-momentum/plan.md)
 
-**Spec**: [specs/001-phase-0-skeleton-data/spec.md](specs/001-phase-0-skeleton-data/spec.md)
+**Spec**: [specs/002-phase-1-momentum/spec.md](specs/002-phase-1-momentum/spec.md)
+
+**Phase 0 reference** (merged into this branch's history): [specs/001-phase-0-skeleton-data/plan.md](specs/001-phase-0-skeleton-data/plan.md)
 
 **Project brief** (multi-phase roadmap): [Project_brief.md](Project_brief.md)
 

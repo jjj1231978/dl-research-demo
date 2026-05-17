@@ -7,10 +7,10 @@ Provides:
 - `get_data_snapshot()` / `load_universe()` — primary read API
 - `render_data_status_sidebar()` — landing-page sidebar component
 
-FMP-side code lives in `src/fmp.py` (function-based, mirrors the conventions
-of ~/projects/ML_short_reversion/src/data/fmp.py).
+FMP-side code lives in `src/fmp.py` (function-based).
+Continuous-futures construction lives in `src/data/futures/` (Phase 1).
 
-Contract: see specs/001-phase-0-skeleton-data/contracts/data_loader_api.md
+Phase 0 contract: see specs/001-phase-0-skeleton-data/contracts/data_loader_api.md
 """
 from __future__ import annotations
 
@@ -59,8 +59,10 @@ class UniverseMembersMismatchError(DeepFinanceError):
 # Path resolution (FR-022 / FR-023)
 # ---------------------------------------------------------------------------
 
-# Repo root: this file lives at <repo>/src/data.py, so two parents up.
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+# Repo root: this file lives at <repo>/src/data/__init__.py, so three parents up.
+# (Phase 1: src/data.py → src/data/__init__.py package conversion; the extra
+# parent reflects the additional directory level.)
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Fixed repo-relative path for bundled CSV fallbacks. Per FR-022, this does
 # NOT honour DEEP_FINANCE_DATA_DIR — the bundled CSVs ship in git and must
@@ -108,12 +110,10 @@ def _read_file_metadata(path: Path, kind: Literal["parquet", "csv"]) -> tuple[in
     full DataFrame into memory if avoidable.
     """
     if kind == "parquet":
-        # pyarrow can read just the metadata + the date column cheaply
         df = pd.read_parquet(path, columns=None)
     else:
         df = pd.read_csv(path)
     row_count = len(df)
-    # Prefer a "date" column; fall back to "Date"; otherwise no date range
     date_col = None
     for candidate in ("date", "Date", "timestamp"):
         if candidate in df.columns:
@@ -140,18 +140,16 @@ def get_data_snapshot(universe: "Universe") -> DataSnapshot:
     parquet_path = universe.parquet_path
     csv_path = universe.csv_fallback_path
 
-    # 1. Parquet preferred
     if parquet_path is not None and parquet_path.exists():
         try:
             row_count, date_range = _read_file_metadata(parquet_path, "parquet")
-        except Exception as exc:  # noqa: BLE001 — surface any pyarrow/pandas error as DataLoadError
+        except Exception as exc:  # noqa: BLE001
             raise DataLoadError(
                 f"Parquet exists but is unreadable: {parquet_path} — {exc.__class__.__name__}: {exc}"
             ) from exc
         ts = _dt.datetime.fromtimestamp(parquet_path.stat().st_mtime, tz=_dt.timezone.utc)
         return DataSnapshot(universe, parquet_path, "parquet", ts, row_count, date_range)
 
-    # 2. CSV fallback
     if csv_path is not None and csv_path.exists():
         try:
             row_count, date_range = _read_file_metadata(csv_path, "csv")
@@ -162,7 +160,6 @@ def get_data_snapshot(universe: "Universe") -> DataSnapshot:
         ts = _dt.datetime.fromtimestamp(csv_path.stat().st_mtime, tz=_dt.timezone.utc)
         return DataSnapshot(universe, csv_path, "csv", ts, row_count, date_range)
 
-    # 3. Missing
     fallback_path = parquet_path if parquet_path is not None else (csv_path if csv_path is not None else _REPO_ROOT / "data" / f"{universe.name}.missing")
     return DataSnapshot(universe, fallback_path, "missing", None, None, None)
 
@@ -192,13 +189,11 @@ def load_universe(universe: "Universe") -> pd.DataFrame:
         df = pd.read_parquet(snapshot.path, engine="pyarrow")
     else:  # csv
         df = pd.read_csv(snapshot.path)
-        # Coerce a date column to datetime if present
         for candidate in ("date", "Date"):
             if candidate in df.columns:
                 df[candidate] = pd.to_datetime(df[candidate], errors="coerce")
                 break
 
-    # Ticker-drift check
     if universe.members is not None and "symbol" in df.columns:
         loaded_members = set(df["symbol"].unique().tolist())
         expected = set(universe.members)
@@ -243,7 +238,6 @@ def render_data_status_sidebar(sidebar) -> None:
             )
         else:
             icon = "⊝"
-            # Special-case sp500_100: signal OD-2 pending confirmation
             if universe.name == "sp500_100":
                 caption = "Not yet available — 100-ticker list pending confirmation (see OD-2)"
             else:
@@ -273,11 +267,5 @@ def render_data_status_sidebar(sidebar) -> None:
     )
 
 
-# FMP client lives in src/fmp.py (function-based API mirroring
-# ~/projects/ML_short_reversion/src/data/fmp.py). Import as:
-#     from src.fmp import (
-#         fetch_historical_prices,
-#         fetch_current_sp500_constituents,
-#         fetch_historical_sp500_constituents,
-#         fetch_shares_outstanding,
-#     )
+# FMP client lives in src/fmp.py.
+# Continuous-futures construction lives in src/data/futures/ (Phase 1).
