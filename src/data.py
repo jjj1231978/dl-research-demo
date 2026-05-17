@@ -6,7 +6,9 @@ Provides:
 - `DataSnapshot` — value object describing the on-disk file backing a universe
 - `get_data_snapshot()` / `load_universe()` — primary read API
 - `render_data_status_sidebar()` — landing-page sidebar component
-- `FMPClient` — thin REST wrapper used by scripts/fetch_data.py
+
+FMP-side code lives in `src/fmp.py` (function-based, mirrors the conventions
+of ~/projects/ML_short_reversion/src/data/fmp.py).
 
 Contract: see specs/001-phase-0-skeleton-data/contracts/data_loader_api.md
 """
@@ -15,13 +17,11 @@ from __future__ import annotations
 import datetime as _dt
 import logging
 import os
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import pandas as pd
-import requests
 
 if TYPE_CHECKING:
     import streamlit as st  # noqa: F401  (only imported for type hints)
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 
 class DeepFinanceError(Exception):
-    """Base for all errors raised by src.data."""
+    """Base for all errors raised by src.data and src.fmp."""
 
 
 class DataLoadError(DeepFinanceError):
@@ -53,18 +53,6 @@ class UniverseMembersMismatchError(DeepFinanceError):
     """Raised by load_universe() when the loaded DataFrame's symbol set does
     not match Universe.members. Catches ticker drift (FR-006 edge case).
     """
-
-
-class FMPAuthError(DeepFinanceError):
-    """FMP returned 401/403 — credential missing or rejected."""
-
-
-class FMPRateLimitError(DeepFinanceError):
-    """FMP returned 429 — rate-limit exhaustion."""
-
-
-class FMPClientError(DeepFinanceError):
-    """FMP returned an unhandled 4xx (other than the OD-3 shares-outstanding skip)."""
 
 
 # ---------------------------------------------------------------------------
@@ -285,126 +273,11 @@ def render_data_status_sidebar(sidebar) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# FMPClient (used only by scripts/fetch_data.py)
-# ---------------------------------------------------------------------------
-
-
-class FMPClient:
-    """Thin REST wrapper over the FMP endpoints used by the fetch script.
-
-    Per contracts/data_loader_api.md §"FMPClient" — `shares_outstanding`
-    returns None on 403/404 to support the OD-3 warn-and-skip path.
-    """
-
-    _BASE = "https://financialmodelingprep.com/api/v3"
-
-    def __init__(self, api_key: str, *, timeout: int = 30, max_retries: int = 3):
-        if not api_key:
-            raise FMPAuthError("FMP API key is missing or empty")
-        self._api_key = api_key
-        self._timeout = timeout
-        self._max_retries = max_retries
-        self._session = requests.Session()
-
-    # ---- internal helpers ----
-
-    def _get(self, path: str, params: dict | None = None, *, allow_shares_outstanding_skip: bool = False):
-        """GET <BASE>/<path>?apikey=...&<params>. Returns parsed JSON.
-
-        Retries 5xx and timeouts with exponential backoff. Raises typed
-        exceptions for 4xx (except when `allow_shares_outstanding_skip` is
-        True, in which case 403/404 returns None per OD-3).
-        """
-        url = f"{self._BASE}/{path}"
-        params = {**(params or {}), "apikey": self._api_key}
-        last_exc: Exception | None = None
-        for attempt in range(self._max_retries + 1):
-            try:
-                resp = self._session.get(url, params=params, timeout=self._timeout)
-            except requests.exceptions.RequestException as exc:
-                last_exc = exc
-                if attempt < self._max_retries:
-                    time.sleep(2 ** attempt)
-                    continue
-                raise FMPClientError(f"Network error after {self._max_retries + 1} attempts: {exc}") from exc
-
-            status = resp.status_code
-            if status in (200, 201):
-                return resp.json()
-            if status in (403, 404) and allow_shares_outstanding_skip:
-                return None
-            if status in (401, 403):
-                # Don't log the URL (would leak the key)
-                raise FMPAuthError(f"FMP authentication rejected (HTTP {status}) on {path}")
-            if status == 429:
-                raise FMPRateLimitError(f"FMP rate-limit exhausted (HTTP 429) on {path}")
-            if 400 <= status < 500:
-                raise FMPClientError(f"FMP returned HTTP {status} on {path}")
-            # 5xx — retry
-            if attempt < self._max_retries:
-                time.sleep(2 ** attempt)
-                continue
-            raise FMPClientError(f"FMP returned HTTP {status} on {path} after {self._max_retries + 1} attempts")
-
-        raise FMPClientError(f"Exhausted retries on {path}: {last_exc}")
-
-    # ---- public API ----
-
-    def historical_prices(self, symbol: str, *, start: _dt.date, end: _dt.date) -> pd.DataFrame:
-        """Fetch historical EOD prices for a symbol. Returns a long-format
-        DataFrame: date, symbol, open, high, low, close, volume.
-        """
-        data = self._get(
-            f"historical-price-full/{symbol}",
-            params={"from": start.isoformat(), "to": end.isoformat()},
-        )
-        hist = data.get("historical", []) if isinstance(data, dict) else []
-        if not hist:
-            return pd.DataFrame(columns=["date", "symbol", "open", "high", "low", "close", "volume"])
-        df = pd.DataFrame(hist)
-        df["symbol"] = symbol
-        df["date"] = pd.to_datetime(df["date"]).dt.date
-        keep = ["date", "symbol", "open", "high", "low", "close", "volume"]
-        return df[[c for c in keep if c in df.columns]].sort_values("date").reset_index(drop=True)
-
-    def historical_sp500_constituents(self) -> pd.DataFrame:
-        """Fetch the historical S&P 500 constituents list (used to build the
-        100-stock universe without survivorship bias per FR-011).
-        """
-        data = self._get("historical/sp500_constituent")
-        if not isinstance(data, list):
-            return pd.DataFrame()
-        return pd.DataFrame(data)
-
-    def shares_outstanding(self, symbol: str, *, start: _dt.date, end: _dt.date) -> pd.DataFrame | None:
-        """Fetch shares-outstanding history for a symbol.
-
-        Returns None (and logs a warning) if the FMP tier in use does not
-        expose the endpoint (HTTP 403/404), per OD-3 warn-and-skip (FR-012).
-        """
-        data = self._get(
-            f"historical/shares_float/{symbol}",
-            allow_shares_outstanding_skip=True,
-        )
-        if data is None:
-            log.warning(
-                "shares-outstanding endpoint unavailable for %s — DWP benchmark will be unavailable",
-                symbol,
-            )
-            return None
-        if not isinstance(data, list) or not data:
-            return pd.DataFrame(columns=["date", "symbol", "shares_outstanding"])
-        df = pd.DataFrame(data)
-        df["symbol"] = symbol
-        if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"]).dt.date
-        if "floatShares" in df.columns:
-            df = df.rename(columns={"floatShares": "shares_outstanding"})
-        elif "outstandingShares" in df.columns:
-            df = df.rename(columns={"outstandingShares": "shares_outstanding"})
-        keep = [c for c in ("date", "symbol", "shares_outstanding") if c in df.columns]
-        # filter to date window
-        if "date" in df.columns:
-            df = df[(df["date"] >= start) & (df["date"] <= end)]
-        return df[keep].sort_values("date").reset_index(drop=True)
+# FMP client lives in src/fmp.py (function-based API mirroring
+# ~/projects/ML_short_reversion/src/data/fmp.py). Import as:
+#     from src.fmp import (
+#         fetch_historical_prices,
+#         fetch_current_sp500_constituents,
+#         fetch_historical_sp500_constituents,
+#         fetch_shares_outstanding,
+#     )

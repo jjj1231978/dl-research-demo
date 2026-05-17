@@ -10,9 +10,24 @@ from src.data import (
     get_data_snapshot,      # Universe → DataSnapshot
     load_universe,          # Universe → pandas.DataFrame
     render_data_status_sidebar,  # st.sidebar → None (side-effecting)
-    FMPClient,              # Class, used only by scripts/fetch_data.py
 )
 ```
+
+**FMP-side code** lives in `src/fmp.py` (function-based API mirroring the
+conventions of `~/projects/ML_short_reversion/src/data/fmp.py`):
+
+```python
+from src.fmp import (
+    fetch_historical_prices,             # multi-symbol, per-ticker cache
+    fetch_current_sp500_constituents,
+    fetch_historical_sp500_constituents,
+    fetch_shares_outstanding,            # returns None on 404 (OD-3 skip)
+    DEFAULT_FMP_CACHE,                   # Path("~/data_lake/fmp/deep-finance/")
+)
+```
+
+`src/fmp.py` is consumed only by `scripts/fetch_data.py`; the live app never
+imports it.
 
 Anything not in this list is implementation detail and MUST NOT be imported
 by callers.
@@ -136,32 +151,64 @@ otherwise.
 
 ---
 
-## `class FMPClient`
+## FMP module (`src/fmp.py`)
 
-**Purpose**: Thin REST wrapper over the FMP endpoints used by
-`scripts/fetch_data.py`. Not consumed by the live app.
+Function-based API (no client class), mirroring the conventions of
+`~/projects/ML_short_reversion/src/data/fmp.py`. Used only by
+`scripts/fetch_data.py`.
+
+**Module-level constants**:
+- `FMP_BASE = "https://financialmodelingprep.com/stable"` — the `/stable/`
+  namespace (the legacy `/api/v3/` returns 403 on Premium tiers).
+- `DEFAULT_FMP_CACHE = Path("~/data_lake/fmp/deep-finance/").expanduser()` —
+  per-ticker parquet cache root. Distinct from `DEEP_FINANCE_DATA_DIR`
+  (which controls OUTPUT parquet location, not the cache).
+- `DEFAULT_REFRESH_DAYS = 7` — trailing window re-fetched on each
+  incremental update (catches FMP back-revisions like split adjustments
+  and late corrections).
 
 **Public surface**:
 
 ```python
-class FMPClient:
-    def __init__(self, api_key: str, *, timeout: int = 30, max_retries: int = 3): ...
-    def historical_prices(self, symbol: str, *, start: date, end: date) -> pd.DataFrame: ...
-    def historical_sp500_constituents(self) -> pd.DataFrame: ...
-    def shares_outstanding(self, symbol: str, *, start: date, end: date) -> pd.DataFrame | None: ...
-        # Returns None when the endpoint returns 403/404 (OD-3 warn-and-skip path).
+fetch_historical_prices(
+    symbols: list[str], start: date, end: date, *,
+    cache_dir: Path | None = None,
+    api_key: str | None = None,
+    rate_limit_per_min: int = 240,        # FMP Starter tier cap is 250
+    refresh_days: int = DEFAULT_REFRESH_DAYS,
+) -> pd.DataFrame                          # long-format
+
+fetch_current_sp500_constituents(*, cache_dir=None, api_key=None) -> pd.DataFrame
+fetch_historical_sp500_constituents(*, cache_dir=None, api_key=None) -> pd.DataFrame
+
+fetch_shares_outstanding(
+    symbols, start, end, *, cache_dir=None, api_key=None, rate_limit_per_min=240,
+) -> pd.DataFrame | None                   # None on 404 (OD-3 warn-and-skip)
 ```
 
+**Caching pattern**:
+- Per-ticker parquet at `{cache_dir}/prices/by_symbol/{TICKER}.parquet`.
+- Membership at `{cache_dir}/membership/sp500_current.parquet` and
+  `sp500_historical.parquet`.
+- Shares at `{cache_dir}/shares/by_symbol/{TICKER}.parquet`.
+- Incremental updates re-fetch only `start` ↔ `cache_max - refresh_days`,
+  then merge-and-write atomically (existing rows win on key collision).
+- Tickers with no cached parquet are full-history fetched from `start`.
+
 **Error handling**:
+- HTTP 5xx and timeouts: standard urllib retry semantics; one explicit retry
+  on 429 after a 60 s sleep.
+- HTTP 403 / 404: `_fetch_with_429_retry` returns `None` so callers can
+  treat unavailable endpoints (e.g., shares-outstanding on a tier without
+  it) as warn-and-skip rather than failure.
+- `_resolve_api_key()` raises `EnvironmentError` when `FMP_API_KEY` is
+  missing.
+- `fetch_historical_prices()` refuses to assemble a wide matrix if >5 % of
+  symbols failed for batches of ≥20 symbols (defends against silent
+  partial caches from throttling).
 
-- HTTP 4xx (other than the OD-3 403/404 skip on shares-outstanding) → raise
-  `FMPAuthError` for 401/403, `FMPRateLimitError` for 429, `FMPClientError`
-  for everything else.
-- HTTP 5xx → retry up to `max_retries` with exponential backoff (1s, 2s, 4s).
-- Network timeout → retry per `max_retries`.
-
-**Logging**: per-symbol INFO line when verbose; never logs the URL with the
-key (`api_key` is stripped before any log message).
+**Logging**: standard `logging.getLogger(__name__)`; per-symbol INFO line;
+URLs containing the API key are never logged.
 
 ---
 
@@ -171,10 +218,8 @@ key (`api_key` is stripped before any log message).
 DataLoadError              # parquet/CSV unreadable
 DataNotFoundError          # parquet AND csv both absent
 UniverseMembersMismatchError  # ticker drift detected
-FMPAuthError               # 401/403 (other than the OD-3 skip)
-FMPRateLimitError          # 429
-FMPClientError             # other 4xx
 ```
 
-All inherit from a common `DeepFinanceError` base in `src/data.py` so callers
-can catch broadly when needed.
+All inherit from a common `DeepFinanceError` base in `src/data.py`.
+`src/fmp.py` uses Python's built-in `EnvironmentError` for missing
+credentials and raw `urllib.error.HTTPError` for unrecovered HTTP failures.

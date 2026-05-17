@@ -2,9 +2,18 @@
 
 **Type**: one-shot CLI, developer-local invocation only.
 **Runs on**: CPU (Constitution Principle III — no GPU operations).
-**Reads from**: FMP REST API + `.env` for `FMP_API_KEY`.
-**Writes to**: `data/etf_basket.parquet`, `data/sp500_20.parquet`,
-`data/sp500_100.parquet` (last one only after OD-2 confirmation).
+**Reads from**: FMP REST API (`/stable/` namespace) + `.env` for `FMP_API_KEY`.
+**Writes to**:
+- OUTPUT parquets (assembled, per-universe): `{data_root()}/etf_basket.parquet`,
+  `sp500_20.parquet`, `sp500_100.parquet` (last one after OD-2 confirmation).
+- CACHE parquets (per-ticker, append-only): `~/data_lake/fmp/deep-finance/`
+  (mirrors the `~/data_lake/<source>/` convention from
+  `~/projects/ML_short_reversion/`). Cache survives across runs; re-running
+  the script does incremental updates instead of full re-fetch.
+
+**FMP work delegated to `src/fmp.py`** (function-based, mirrors the reference
+project's architecture). See `contracts/data_loader_api.md` §"FMP module"
+for the FMP module's surface.
 
 ## CLI surface
 
@@ -17,9 +26,12 @@ python scripts/fetch_data.py [OPTIONS]
 | Flag | Type | Default | Meaning |
 |---|---|---|---|
 | `--universe NAME` | repeatable | (all) | Restrict to specific universes (`etf_basket`, `sp500_20`, `sp500_100`). When omitted, fetches all configured universes. |
-| `--out-dir PATH` | path | `data_root()` (which honours `DEEP_FINANCE_DATA_DIR`, defaulting to `./data/`) | Output directory for parquet files. When set explicitly, this flag wins over the env var. (FR-022) |
+| `--out-dir PATH` | path | `data_root()` (which honours `DEEP_FINANCE_DATA_DIR`, defaulting to `./data/`) | OUTPUT directory for assembled parquets. When set explicitly, this flag wins over the env var. (FR-022) |
+| `--cache-dir PATH` | path | `~/data_lake/fmp/deep-finance/` | FMP per-ticker parquet cache root. Mirrors the convention from `~/projects/ML_short_reversion/`. Distinct from `--out-dir`. |
 | `--start DATE` | ISO date | universe-dependent | Override the earliest date to fetch. |
 | `--end DATE` | ISO date | today (UTC) | Override the latest date to fetch. |
+| `--rate-limit N` | int | 240 | FMP requests-per-minute cap (Starter tier ceiling is 250). |
+| `--refresh-days N` | int | 7 | Trailing window re-fetched on each incremental update (picks up FMP back-revisions). |
 | `--dry-run` | flag | off | Print the per-universe plan and exit without making any FMP calls. |
 | `-v / --verbose` | flag | off | INFO logging (default is WARNING). |
 
