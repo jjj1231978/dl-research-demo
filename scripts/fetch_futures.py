@@ -232,7 +232,11 @@ def main(argv: list[str] | None = None) -> int:
         "universe": "cme_futures",
         "fetched_at": _dt.datetime.now(_dt.timezone.utc)
                       .isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "source": str(lake_loader.LAKE_PARQUET),
+        # Tilde-relative path so the sidecar doesn't leak the developer's
+        # home-dir layout when the parquet ships in git.
+        "source": "~/" + str(lake_loader.LAKE_PARQUET.relative_to(Path.home()))
+                   if str(lake_loader.LAKE_PARQUET).startswith(str(Path.home()))
+                   else str(lake_loader.LAKE_PARQUET),
         "roots": sorted(panel["contract"].unique().tolist()),
         "row_count": int(len(panel)),
         "date_range": {

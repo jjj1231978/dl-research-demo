@@ -591,7 +591,7 @@ st.divider()
 st.caption(
     "📄 [arXiv:1904.04912](https://arxiv.org/abs/1904.04912) · "
     "💻 [pages/1_📈_Momentum.py on GitHub]"
-    "(https://github.com/jianjin78/deep-finance-showcase/blob/main/pages/1_%F0%9F%93%88_Momentum.py) · "
+    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/1_%F0%9F%93%88_Momentum.py) · "
     "Constitution v1.1.0."
 )
 st.code(

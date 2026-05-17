@@ -1,7 +1,7 @@
 {
   "universe": "cme_futures",
   "fetched_at": "2026-05-17T15:45:19Z",
-  "source": "/home/jianj/data_lake/databento/futures/L0/ohlcv-1d/ohlcv-1d_GLBX.MDP3_bcom_2010-06-06_2026-05-05.parquet",
+  "source": "~/data_lake/databento/futures/L0/ohlcv-1d/ohlcv-1d_GLBX.MDP3_bcom_2010-06-06_2026-05-05.parquet",
   "roots": [
     "ALI",
     "CB",

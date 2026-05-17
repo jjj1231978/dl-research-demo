@@ -124,6 +124,6 @@ through the live model on the paper's canonical data.
 # -- Footer -------------------------------------------------------------------
 st.divider()
 st.caption(
-    "Source code on [GitHub](https://github.com/jianjin78/deep-finance-showcase). "
+    "Source code on [GitHub](https://github.com/jjj1231978/dl-research-demo). "
     "Deployed on Hugging Face Spaces. Constitution v1.1.0."
 )
