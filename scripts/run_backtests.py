@@ -97,7 +97,6 @@ def _deep_position(strategy: str, prices, checkpoint_path: Path):
     seq_length = 60
     contracts = list(prices.columns)
 
-    rets_1d = prices.pct_change(1)
     def _norm(_h):
         roll_ret = prices.pct_change(_h)
         vol = roll_ret.ewm(span=63, adjust=False).std()
@@ -121,7 +120,6 @@ def _deep_position(strategy: str, prices, checkpoint_path: Path):
 
 def _build_momentum_panel(data_dir: Path, checkpoint_dir: Path):
     """Build the long-format E4 panel for all (strategy, vol_scaling, contract)."""
-    import numpy as np
     import pandas as pd
 
     from src.strategies.vol_targeting import vol_target

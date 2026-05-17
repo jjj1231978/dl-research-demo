@@ -123,7 +123,7 @@ These tasks are mostly **manual operator steps** (cannot fully automate without 
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Create `tests/unit/test_tsmom.py` per FR-019 + research.md R7. **Self-contained** — no imports from `~/projects/QIS_Commodities` or any external repo. Fixture: a 1-contract × 1000-day synthetic price series `100 * (1 + rng.normal(0, 0.01, 1000)).cumprod()` with `np.random.default_rng(0)`. Required test cases:
+- [X] T038 [P] [US3] Create `tests/unit/test_tsmom.py` per FR-019 + research.md R7. **Self-contained** — no imports from `~/projects/QIS_Commodities` or any external repo. Fixture: a 1-contract × 1000-day synthetic price series `100 * (1 + rng.normal(0, 0.01, 1000)).cumprod()` with `np.random.default_rng(0)`. Required test cases:
   - `test_long_only_is_constant_one` — `long_only(prices)` returns all 1.0.
   - `test_sgn_returns_monotonic_increasing` — for a linearly-increasing series, `sgn_returns` is `+1` past the lookback window.
   - `test_sgn_returns_monotonic_decreasing` — same shape, `-1`.
@@ -132,16 +132,16 @@ These tasks are mostly **manual operator steps** (cannot fully automate without 
   - `test_macd_ensemble_equals_mean_of_components` — formula equality: `macd_ensemble == mean([macd_signal(s, l) for s, l in zip(shorts, longs)])` with `np.allclose(atol=1e-12)`.
   - `test_no_lookahead_leakage` — first `lookback` rows are NaN for `sgn_returns`; first `long_span` rows are NaN for `macd_signal`.
   - `test_output_shape_preserved` — all four functions return same shape as input.
-- [ ] T039 [P] [US3] Create `tests/unit/test_vol_targeting.py` per FR-020. Three tests: (a) `test_vol_targeting_hits_target`: σ_target = 0.15 produces scaled-signal realised vol in [0.142, 0.158] (5 % tolerance band) on a 1000-day fixture; (b) `test_vol_targeting_extreme_low`: σ_target = 0.01 produces finite output; (c) `test_vol_targeting_extreme_high`: σ_target = 1.0 produces finite output. All use the same fixture pattern as test_tsmom.
-- [ ] T040 [P] [US3] Create `tests/unit/test_checkpoint_smoke.py` per FR-021 + `contracts/deep_momentum_models.md` §"Forward-pass smoke test". Two tests: `test_mlp_checkpoint_loads_and_forwards`, `test_lstm_checkpoint_loads_and_forwards`. Each instantiates the model with default hyperparameters, loads the `.pt` from `data/pretrained/`, runs forward on a zeros tensor of shape `(1, 60, 8)`, asserts output shape `(1, 1)`, finite, in `[-1-1e-6, 1+1e-6]`. Skip the test (pytest.skip) if the `.pt` file doesn't exist — so the suite still passes between US1 ship and US2 ship.
-- [ ] T041 [P] [US3] Create `tests/unit/test_train_smoke.py` per Constitution Principle II + plan §"Testing". One test: `test_train_runs_on_cpu_one_epoch` — call `train(data_dir=<tmp_path with a 5-contract × 100-day subset of cme_futures>, arch="MLP", device=torch.device("cpu"), checkpoint_dir=<tmp_path>, max_epochs=1)`, assert the function returns a dict with the expected keys, assert a `.pt` was written to the checkpoint_dir and is loadable.
+- [X] T039 [P] [US3] Create `tests/unit/test_vol_targeting.py` per FR-020. Three tests: (a) `test_vol_targeting_hits_target`: σ_target = 0.15 produces scaled-signal realised vol in [0.142, 0.158] (5 % tolerance band) on a 1000-day fixture; (b) `test_vol_targeting_extreme_low`: σ_target = 0.01 produces finite output; (c) `test_vol_targeting_extreme_high`: σ_target = 1.0 produces finite output. All use the same fixture pattern as test_tsmom.
+- [X] T040 [P] [US3] Create `tests/unit/test_checkpoint_smoke.py` per FR-021 + `contracts/deep_momentum_models.md` §"Forward-pass smoke test". Two tests: `test_mlp_checkpoint_loads_and_forwards`, `test_lstm_checkpoint_loads_and_forwards`. Each instantiates the model with default hyperparameters, loads the `.pt` from `data/pretrained/`, runs forward on a zeros tensor of shape `(1, 60, 8)`, asserts output shape `(1, 1)`, finite, in `[-1-1e-6, 1+1e-6]`. Skip the test (pytest.skip) if the `.pt` file doesn't exist — so the suite still passes between US1 ship and US2 ship.
+- [X] T041 [P] [US3] Create `tests/unit/test_train_smoke.py` per Constitution Principle II + plan §"Testing". One test: `test_train_runs_on_cpu_one_epoch` — call `train(data_dir=<tmp_path with a 5-contract × 100-day subset of cme_futures>, arch="MLP", device=torch.device("cpu"), checkpoint_dir=<tmp_path>, max_epochs=1)`, assert the function returns a dict with the expected keys, assert a `.pt` was written to the checkpoint_dir and is loadable.
 
 ### Run + verify for User Story 3
 
-- [ ] T042 [US3] Run `.venv/bin/python -m pytest tests/unit/test_tsmom.py -v`. All 8 self-contained property + formula-equality tests pass (FR-019 / SC-003). No external repo dependency at test time.
-- [ ] T043 [US3] Run `.venv/bin/python -m pytest tests/unit/test_vol_targeting.py -v`. 3 tests pass (FR-020).
-- [ ] T044 [US3] Run `.venv/bin/python -m pytest tests/unit/test_checkpoint_smoke.py -v`. 2 tests pass (or skip if checkpoints not yet committed; will pass once US2 lands). FR-021.
-- [ ] T045 [US3] Run `.venv/bin/python -m pytest tests/unit/test_train_smoke.py -v`. 1 test passes. Verifies Constitution Principle II — same training body runs on CPU.
+- [X] T042 [US3] Run `.venv/bin/python -m pytest tests/unit/test_tsmom.py -v`. All 8 self-contained property + formula-equality tests pass (FR-019 / SC-003). No external repo dependency at test time. — *9/9 pass (added a guard test_vol_targeting_rejects_invalid_target + _span as a bonus).*
+- [X] T043 [US3] Run `.venv/bin/python -m pytest tests/unit/test_vol_targeting.py -v`. 3 tests pass (FR-020). — *5/5 pass.*
+- [X] T044 [US3] Run `.venv/bin/python -m pytest tests/unit/test_checkpoint_smoke.py -v`. 2 tests pass (or skip if checkpoints not yet committed; will pass once US2 lands). FR-021. — *2 skipped (pending US2 checkpoints) + 2 untrained-model smoke tests pass.*
+- [X] T045 [US3] Run `.venv/bin/python -m pytest tests/unit/test_train_smoke.py -v`. 1 test passes. Verifies Constitution Principle II — same training body runs on CPU. — *1/1 pass.*
 
 **Checkpoint**: US3 is functional. All test surfaces backing FRs 019/020/021/022 + Principle II + Principle V are green.
 
