@@ -69,7 +69,11 @@ data/backtests/*.parquet.json
 !data/etf_basket.parquet.json
 !data/sp500_20.parquet
 !data/sp500_20.parquet.json
+# Phase 3: ship the small demo slice; the full FI-2010 parquet is dev-machine + Modal Volume only.
+!data/lob_fi2010_demo.parquet
 !data/backtests/momentum_results.parquet
 !data/backtests/momentum_results.parquet.json
 !data/backtests/portfolio_results.parquet
 !data/backtests/portfolio_results.parquet.json
+!data/backtests/lob_results.parquet
+!data/backtests/lob_results.parquet.json

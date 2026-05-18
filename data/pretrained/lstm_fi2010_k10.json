@@ -1,0 +1,54 @@
+{
+  "trained_on": "2026-05-18",
+  "trained_with": "Modal T4 (image im-OEdJLDNYyL5xvikxTpJ5Sq)",
+  "torch_version": "2.12.0+cu130",
+  "modal_app": "deep-finance-train-deeplob",
+  "arch": "LSTM",
+  "dataset": "FI-2010",
+  "setup": 2,
+  "k": 10,
+  "n_classes": 3,
+  "data_range": {
+    "train_days": [
+      0
+    ],
+    "test_days": [
+      8,
+      9,
+      10
+    ]
+  },
+  "hyperparameters": {
+    "lookback": 100,
+    "batch_size": 64,
+    "lr": 0.001,
+    "epochs_trained": 45,
+    "patience": 10,
+    "min_delta": 0.001
+  },
+  "final_metrics": {
+    "val_loss": 0.7698191608016814,
+    "test_accuracy": 0.7667367846707206,
+    "test_precision_macro": 0.68641619755588,
+    "test_recall_macro": 0.5419831121388888,
+    "test_f1_macro": 0.5826280329965182,
+    "confusion_matrix": [
+      [
+        7014,
+        12768,
+        1272
+      ],
+      [
+        2574,
+        92886,
+        3073
+      ],
+      [
+        1137,
+        11667,
+        6898
+      ]
+    ]
+  },
+  "git_commit": ""
+}
