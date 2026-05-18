@@ -24,7 +24,7 @@ from src.models.deeplob import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PAGE_FILE = str(REPO_ROOT / "pages" / "3_📖_Order_Book.py")
+PAGE_FILE = str(REPO_ROOT / "pages" / "3_📖_Limit_Order_Book.py")
 
 _LOOKBACK = 100
 _FEATURE_COLS = [f"f{i:02d}" for i in range(40)]

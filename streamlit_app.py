@@ -87,7 +87,7 @@ with col3:
 
 """
     )
-    st.page_link("pages/3_📖_Order_Book.py", label="Explore Order Book →", icon="▶")
+    st.page_link("pages/3_📖_Limit_Order_Book.py", label="Explore Order Book →", icon="▶")
 
 st.divider()
 

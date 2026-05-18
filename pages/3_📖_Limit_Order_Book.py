@@ -759,8 +759,8 @@ with st.expander("💻 Code", expanded=False):
 st.divider()
 st.caption(
     "📄 [arXiv:1808.03668](https://arxiv.org/abs/1808.03668) · "
-    "💻 [pages/3_📖_Order_Book.py on GitHub]"
-    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/3_%F0%9F%93%96_Order_Book.py) · "
+    "💻 [pages/3_📖_Limit_Order_Book.py on GitHub]"
+    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/3_%F0%9F%93%96_Limit_Order_Book.py) · "
     "Constitution v1.1.0."
 )
 st.code(
