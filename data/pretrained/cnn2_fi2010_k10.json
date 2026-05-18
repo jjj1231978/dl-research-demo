@@ -1,0 +1,54 @@
+{
+  "trained_on": "2026-05-18",
+  "trained_with": "Modal T4 (image im-OEdJLDNYyL5xvikxTpJ5Sq)",
+  "torch_version": "2.12.0+cu130",
+  "modal_app": "deep-finance-train-deeplob",
+  "arch": "CNN2",
+  "dataset": "FI-2010",
+  "setup": 2,
+  "k": 10,
+  "n_classes": 3,
+  "data_range": {
+    "train_days": [
+      0
+    ],
+    "test_days": [
+      8,
+      9,
+      10
+    ]
+  },
+  "hyperparameters": {
+    "lookback": 100,
+    "batch_size": 64,
+    "lr": 0.001,
+    "epochs_trained": 49,
+    "patience": 10,
+    "min_delta": 0.001
+  },
+  "final_metrics": {
+    "val_loss": 0.6290915357931774,
+    "test_accuracy": 0.8220390698475831,
+    "test_precision_macro": 0.7802226996708278,
+    "test_recall_macro": 0.6429764226210396,
+    "test_f1_macro": 0.6908266607729291,
+    "confusion_matrix": [
+      [
+        10278,
+        9443,
+        1333
+      ],
+      [
+        2051,
+        94791,
+        1691
+      ],
+      [
+        1470,
+        8800,
+        9432
+      ]
+    ]
+  },
+  "git_commit": ""
+}
