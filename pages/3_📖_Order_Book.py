@@ -38,6 +38,12 @@ _FEATURE_COLS = [f"f{i:02d}" for i in range(40)]
 _HORIZONS = (10, 20, 30, 50, 100)
 _LOOKBACK = 100
 _CLASS_NAMES = ("down", "stationary", "up")
+# In-page LDA fit + DeepLOB inference must fit in HF CPU Basic's 16 GB RAM
+# AND complete in a few seconds. The full demo slice (~55k ticks) blows up to
+# ~880 MB of windows and takes 240+ s for the LDA SVD; we cap to the first
+# _IN_PAGE_TICK_CAP ticks for in-page work. Tab 4A still reports the full-set
+# numbers from `data/backtests/lob_results.parquet`.
+_IN_PAGE_TICK_CAP = 3000
 
 # Per FI-2010 NoAuction_DecPre_CF spec: features are ordered
 # (ask_p_1, ask_v_1, bid_p_1, bid_v_1, ask_p_2, ask_v_2, …) for 10 levels.
@@ -141,19 +147,78 @@ def _shape_for_arch(arch_lower: str, x_seq: "np.ndarray | torch.Tensor"):
     raise ValueError(arch_lower)
 
 
-def _build_windows(demo: pd.DataFrame, label_col: str):
-    """Sliding-window arrays from the demo slice. Returns (X, y) on the
-    portion where windows can be formed. X shape (N-T+1, T, 40), y shape (N-T+1,)."""
-    feats = demo[_FEATURE_COLS].to_numpy(dtype=np.float32)
-    labels = demo[label_col].to_numpy(dtype=np.int64)
-    n = len(demo)
+@st.cache_data(show_spinner=False)
+def _build_windows_capped(demo_path_str: str, label_col: str, cap: int):
+    """Cached sliding-window builder.
+
+    Reads the demo parquet, keeps the first `cap` ticks, returns
+    (X, y) where X has shape (N-T+1, T, 40), y shape (N-T+1,).
+    Key on (demo_path, label_col, cap) so multiple horizons share the parquet read.
+    """
+    p = Path(demo_path_str)
+    if not p.exists():
+        return np.zeros((0, _LOOKBACK, 40), dtype=np.float32), np.zeros(0, dtype=np.int64)
+    df = pd.read_parquet(p)
+    if len(df) > cap:
+        df = df.iloc[:cap]
+    feats = df[_FEATURE_COLS].to_numpy(dtype=np.float32)
+    labels = df[label_col].to_numpy(dtype=np.int64)
+    n = len(df)
     if n < _LOOKBACK + 1:
         return np.zeros((0, _LOOKBACK, 40), dtype=np.float32), np.zeros(0, dtype=np.int64)
-    # window[i] = feats[i:i+T]; target = label at the END (index i+T-1)
     n_windows = n - _LOOKBACK + 1
     X = np.stack([feats[i: i + _LOOKBACK] for i in range(n_windows)])
     y = labels[_LOOKBACK - 1: _LOOKBACK - 1 + n_windows]
     return X, y
+
+
+@st.cache_data(show_spinner=False)
+def _fit_lda_cached(demo_path_str: str, label_col: str, cap: int):
+    """Fit LDA on the first 70% of the capped demo windows. Return (preds, yte).
+
+    Cached so the ~5-10 s SVD only runs once per (path, horizon) per session.
+    """
+    X, y = _build_windows_capped(demo_path_str, label_col, cap)
+    if len(X) < 20:
+        return None, None
+    n_split = int(0.7 * len(X))
+    Xtr = X[:n_split].reshape(n_split, -1).astype(np.float32)
+    Xte = X[n_split:].reshape(len(X) - n_split, -1).astype(np.float32)
+    ytr, yte = y[:n_split], y[n_split:]
+    try:
+        lda = fit_lda(Xtr, ytr)
+        preds = predict_lda(lda, Xte)
+    except Exception:  # noqa: BLE001
+        return None, None
+    return preds, yte
+
+
+@st.cache_resource(show_spinner=False)
+def _load_deeplob_cached(ckpt_path_str: str):
+    """Load the DeepLOB checkpoint once per session."""
+    import torch as _torch
+    model = DeepLOB()
+    model.load_state_dict(_torch.load(ckpt_path_str, map_location="cpu"))
+    model.eval()
+    return model
+
+
+@st.cache_data(show_spinner=False)
+def _deeplob_infer_cached(ckpt_path_str: str, demo_path_str: str,
+                            label_col: str, cap: int):
+    """Cached DeepLOB inference over the capped demo windows. Returns (probs, y)."""
+    import torch as _torch
+    X, y = _build_windows_capped(demo_path_str, label_col, cap)
+    if len(X) == 0:
+        return np.zeros((0, 3), dtype=np.float32), np.zeros(0, dtype=np.int64)
+    model = _load_deeplob_cached(ckpt_path_str)
+    BATCH = 256
+    probs_chunks = []
+    with _torch.no_grad():
+        for i in range(0, len(X), BATCH):
+            xb = _torch.from_numpy(X[i: i + BATCH]).unsqueeze(1)
+            probs_chunks.append(model(xb).numpy())
+    return np.concatenate(probs_chunks, axis=0), y
 
 
 def _mid_price_proxy(demo: pd.DataFrame) -> np.ndarray:
@@ -370,23 +435,11 @@ with tab2:
             f"{_LOOKBACK + 1} — increase the slice size to enable classical predictions."
         )
     else:
-        # Build sliding windows over the demo slice
-        X_demo, y_demo = _build_windows(demo, f"label_k{horizon_k}")
-        # 70/30 within the demo slice for a quick in-page LDA fit
-        n_split = int(0.7 * len(X_demo))
-        Xtr_flat = X_demo[:n_split].reshape(n_split, -1).astype(np.float32)
-        ytr = y_demo[:n_split]
-        Xte_flat = X_demo[n_split:].reshape(len(X_demo) - n_split, -1).astype(np.float32)
-        yte = y_demo[n_split:]
-
-        try:
-            lda = fit_lda(Xtr_flat, ytr)
-            preds = predict_lda(lda, Xte_flat)
-        except Exception as exc:  # noqa: BLE001
-            st.warning(f"LDA fit failed on this slice: {exc}")
-            preds = None
-
-        if preds is not None and len(yte):
+        cap = min(_IN_PAGE_TICK_CAP, n_demo)
+        preds, yte = _fit_lda_cached(str(_demo_path()), f"label_k{horizon_k}", cap)
+        if preds is None:
+            st.warning("LDA fit failed on this slice — see logs.")
+        elif len(yte):
             from sklearn.metrics import (
                 accuracy_score, f1_score,
                 precision_score, recall_score,
@@ -421,11 +474,10 @@ with tab2:
             st.plotly_chart(fig_pred, width="stretch")
 
             st.caption(
-                f"In-page LDA fit on the first 70% of the demo slice "
-                f"({n_split} windows) and evaluated on the last 30% "
-                f"({len(yte)} windows). For Table II numbers, see Tab 4A — "
-                f"those are computed via `scripts/run_backtests.py --lob` "
-                f"on the full FI-2010 train/test split."
+                f"In-page LDA fit on the first {cap} ticks of the demo slice "
+                f"(70/30 train/test split) and evaluated on {len(yte)} test "
+                f"windows. Tab 4A reports the Table II numbers computed via "
+                f"`scripts/run_backtests.py --lob` on the full FI-2010 split."
             )
 
 
@@ -495,20 +547,19 @@ Linear(64 → 3), Softmax → (B, 3)
             )
 
         if demo_present and ckpt.exists() and n_demo >= _LOOKBACK + 1:
-            import torch
-
             try:
-                model = DeepLOB()
-                model.load_state_dict(torch.load(ckpt, map_location="cpu"))
-                model.eval()
-                X_demo, y_demo = _build_windows(demo, f"label_k{horizon_k}")
-                with torch.no_grad():
-                    out = model(torch.from_numpy(X_demo).unsqueeze(1))
-                probs = out.numpy()
+                cap_3b = min(_IN_PAGE_TICK_CAP, n_demo)
+                probs, y_demo = _deeplob_infer_cached(
+                    str(ckpt), str(_demo_path()),
+                    f"label_k{horizon_k}", cap_3b,
+                )
                 preds = probs.argmax(axis=1)
 
                 running_acc = float((preds == y_demo).mean())
-                st.metric("Running accuracy on demo slice", f"{running_acc * 100:.1f}%")
+                st.metric(
+                    f"Running accuracy on first {cap_3b}-tick window",
+                    f"{running_acc * 100:.1f}%",
+                )
 
                 end = min(tick_idx + 1, len(probs) - 1)
                 start = max(0, end - 600)
