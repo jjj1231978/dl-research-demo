@@ -1,4 +1,4 @@
-"""Page 3 — Limit Order Book (Zhang, Zohren, Roberts 2019).
+"""Page 3 — Order Book (Zhang, Zohren, Roberts 2019).
 
 Spec: specs/004-phase-3-deeplob/spec.md
 Contract: specs/004-phase-3-deeplob/contracts/order_book_page_ui.md
@@ -76,7 +76,7 @@ _ARCH_LABEL = {
 
 
 st.set_page_config(
-    page_title="Limit Order Book — Deep Finance Showcase",
+    page_title="Order Book — Deep Finance Showcase",
     page_icon="📖",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -273,7 +273,7 @@ render_data_status_sidebar(st.sidebar)
 
 # ── Header ────────────────────────────────────────────────────────────
 
-st.title("📖 Limit Order Book — Zhang, Zohren, Roberts (2019)")
+st.title("📖 Order Book — Zhang, Zohren, Roberts (2019)")
 st.markdown(
     "*DeepLOB: Deep Convolutional Neural Networks for Limit Order Books*, "
     "IEEE TSP — [arXiv:1808.03668](https://arxiv.org/abs/1808.03668)"
