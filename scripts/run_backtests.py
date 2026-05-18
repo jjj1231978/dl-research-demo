@@ -48,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Produce data/backtests/portfolio_results.parquet (Phase 2).",
     )
     parser.add_argument(
+        "--lob", action="store_true",
+        help="Produce data/backtests/lob_results.parquet (Phase 3).",
+    )
+    parser.add_argument(
         "--out-dir", type=Path, default=None,
         help="Output dir. Default: ./data/backtests/ (repo-relative).",
     )
@@ -431,6 +435,160 @@ def _build_portfolio_panel(data_dir: Path, checkpoint_dir: Path):
     return out
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Phase 3 — LOB metrics panel
+# ──────────────────────────────────────────────────────────────────────
+
+LOB_ARCHS = ("DeepLOB", "MLP", "CNN1", "CNN2", "LSTM")
+
+# Paper-reported numbers from Zhang et al. 2019 Table II (Setup 2, k=10).
+# These are surfaced in Tab 4 with a "(paper-reported)" badge for the
+# baselines we don't reproduce locally.
+LOB_PAPER_REPORTED = (
+    # (method, accuracy, precision, recall, f1)  — all percentages
+    ("SVM", 0.486, 0.491, 0.486, 0.487),
+    ("BoF", 0.572, 0.490, 0.460, 0.460),
+    ("MCSDA", 0.737, 0.460, 0.479, 0.467),
+    ("B(TABL)", 0.788, 0.789, 0.788, 0.785),
+    ("C(TABL)", 0.842, 0.851, 0.842, 0.844),
+)
+
+
+def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
+    """Produce per-method metrics + confusion matrices for FI-2010 Setup 2 k=10."""
+    import numpy as np
+    import pandas as pd
+    import torch
+    from sklearn.metrics import (
+        accuracy_score, confusion_matrix, f1_score,
+        precision_score, recall_score,
+    )
+
+    from src.models.deeplob import (
+        DeepLOB, LOBCNN_I, LOBCNN_II, LOBLSTM, LOBSimpleMLP,
+    )
+    from src.strategies.lob_classical import fit_lda, predict_lda
+
+    parquet = data_dir / "lob_fi2010.parquet"
+    if not parquet.exists():
+        raise FileNotFoundError(
+            f"{parquet} missing. Run `python scripts/fetch_lob_fi2010.py` first."
+        )
+    panel = pd.read_parquet(parquet)
+    log.info("LOB panel loaded: %d rows", len(panel))
+
+    # Build sliding-window arrays for train (LDA) and test (eval)
+    from src.training.train_deeplob import _build_windows, _shape_input
+    Xtr, ytr = _build_windows(panel, "train")
+    Xte, yte = _build_windows(panel, "test")
+    log.info("train windows: %s; test windows: %s", Xtr.shape, Xte.shape)
+
+    rows = []
+
+    # ── Deep models ────────────────────────────────────────────────
+    arch_map = {
+        "DeepLOB": DeepLOB,
+        "MLP": LOBSimpleMLP,
+        "CNN1": LOBCNN_I,
+        "CNN2": LOBCNN_II,
+        "LSTM": LOBLSTM,
+    }
+    for arch_name, cls in arch_map.items():
+        ckpt = checkpoint_dir / f"{arch_name.lower()}_fi2010_k10.pt"
+        if not ckpt.exists():
+            log.warning(
+                "Skipping %s — checkpoint %s missing. Train via "
+                "`modal run src/training/train_deeplob.py --arch %s`.",
+                arch_name, ckpt, arch_name,
+            )
+            continue
+        log.info("Evaluating %s on test set …", arch_name)
+        model = cls()
+        model.load_state_dict(torch.load(ckpt, map_location="cpu"))
+        model.eval()
+        preds = []
+        BATCH = 256
+        with torch.no_grad():
+            for i in range(0, len(Xte), BATCH):
+                xb = torch.from_numpy(Xte[i: i + BATCH])
+                out = model(_shape_input(arch_name, xb))
+                preds.append(out.argmax(dim=1).numpy())
+        preds = np.concatenate(preds)
+        cm = confusion_matrix(yte, preds, labels=[0, 1, 2])
+        row = {
+            "method": arch_name.lower(),
+            "k": 10,
+            "accuracy": float(accuracy_score(yte, preds)),
+            "precision_macro": float(precision_score(yte, preds, average="macro", zero_division=0)),
+            "recall_macro": float(recall_score(yte, preds, average="macro", zero_division=0)),
+            "f1_macro": float(f1_score(yte, preds, average="macro", zero_division=0)),
+            "source": "reproduced_here",
+        }
+        for i in range(3):
+            for j in range(3):
+                row[f"cm_{i}{j}"] = int(cm[i, j])
+        rows.append(row)
+
+    # ── LDA classical (sklearn, no Modal) ───────────────────────────
+    # LDA scales O(min(n,p)^3) and we have p = 100*40 = 4000 features, so
+    # we subsample training windows to keep the fit tractable on CPU
+    # (full ~254k windows × 4000 features = 4 GB and ~hours of SVD).
+    _LDA_TRAIN_SAMPLES = 30_000
+    log.info("Fitting LDA on flattened LOB features …")
+    Xtr_flat = Xtr.reshape(Xtr.shape[0], -1).astype(np.float32)
+    Xte_flat = Xte.reshape(Xte.shape[0], -1).astype(np.float32)
+    if len(Xtr_flat) > _LDA_TRAIN_SAMPLES:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(len(Xtr_flat), size=_LDA_TRAIN_SAMPLES, replace=False)
+        Xtr_flat = Xtr_flat[idx]
+        ytr_sub = ytr[idx]
+        log.info("  LDA subsample: %d train windows (of %d)", _LDA_TRAIN_SAMPLES, len(Xtr))
+    else:
+        ytr_sub = ytr
+    try:
+        lda = fit_lda(Xtr_flat, ytr_sub)
+        preds = predict_lda(lda, Xte_flat)
+        cm = confusion_matrix(yte, preds, labels=[0, 1, 2])
+        row = {
+            "method": "lda",
+            "k": 10,
+            "accuracy": float(accuracy_score(yte, preds)),
+            "precision_macro": float(precision_score(yte, preds, average="macro", zero_division=0)),
+            "recall_macro": float(recall_score(yte, preds, average="macro", zero_division=0)),
+            "f1_macro": float(f1_score(yte, preds, average="macro", zero_division=0)),
+            "source": "reproduced_here",
+        }
+        for i in range(3):
+            for j in range(3):
+                row[f"cm_{i}{j}"] = int(cm[i, j])
+        rows.append(row)
+        log.info("LDA F1=%.3f", row["f1_macro"])
+    except Exception as exc:  # noqa: BLE001
+        log.warning("LDA fit failed: %s", exc)
+
+    # ── Paper-reported baselines (no confusion matrix) ──────────────
+    for method, acc, prec, rec, f1 in LOB_PAPER_REPORTED:
+        row = {
+            "method": method.lower(),
+            "k": 10,
+            "accuracy": acc,
+            "precision_macro": prec,
+            "recall_macro": rec,
+            "f1_macro": f1,
+            "source": "paper_reported",
+        }
+        for i in range(3):
+            for j in range(3):
+                row[f"cm_{i}{j}"] = -1  # sentinel: no CM available
+        rows.append(row)
+
+    if not rows:
+        raise RuntimeError("No LOB rows produced.")
+    out = pd.DataFrame(rows)
+    out = out.sort_values(["source", "f1_macro"], ascending=[True, False]).reset_index(drop=True)
+    return out
+
+
 def _atomic_write_parquet(df, path: Path) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.parent.mkdir(parents=True, exist_ok=True)
@@ -448,8 +606,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from src.data import data_root
 
-    if not (args.momentum or args.portfolio):
-        print("nothing to do — pass --momentum (Phase 1) or --portfolio (Phase 2).")
+    if not (args.momentum or args.portfolio or args.lob):
+        print("nothing to do — pass --momentum (P1), --portfolio (P2), or --lob (P3).")
         return 0
 
     data_dir = args.data_dir or data_root()
@@ -473,6 +631,17 @@ def main(argv: list[str] | None = None) -> int:
             f"[run_backtests] portfolio_results.parquet: {len(panel)} rows, "
             f"{panel['universe'].nunique()} universes, "
             f"{panel['method'].nunique()} methods → {target}"
+        )
+
+    if args.lob:
+        panel = _build_lob_panel(data_dir, args.checkpoint_dir)
+        target = out_dir / "lob_results.parquet"
+        _atomic_write_parquet(panel, target)
+        print(
+            f"[run_backtests] lob_results.parquet: {len(panel)} rows, "
+            f"{panel['method'].nunique()} methods "
+            f"({(panel['source']=='reproduced_here').sum()} reproduced, "
+            f"{(panel['source']=='paper_reported').sum()} paper-reported) → {target}"
         )
 
     return 0
