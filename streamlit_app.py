@@ -87,7 +87,7 @@ with col3:
 
 """
     )
-    st.page_link("pages/3_📖_Order_Book.py", label="Explore Order Book →", icon="▶")
+    st.page_link("pages/3_📖_Order_Book.py", label="Explore Limit Order Book →", icon="▶")
 
 st.divider()
 
@@ -108,9 +108,9 @@ the first. The deep-learning move is to **collapse the two steps into one
 network** whose output *is* the decision — a continuous position in
 `(-1, +1)` (Momentum, via Softsign), a long-only weight vector summing to
 one (Portfolio, via Softmax), or a class probability over mid-price
-movement directions (Order Book, via 3-way Softmax). Training optimises
+movement directions (Limit Order Book, via 3-way Softmax). Training optimises
 the **financial objective** directly: negative Sharpe for Momentum and
-Portfolio, cross-entropy on the smoothed class labels for Order Book. No
+Portfolio, cross-entropy on the smoothed class labels for Limit Order Book. No
 explicit forecast is ever produced — there is nothing to "forecast then
 size" because the network's output is the size.
 
