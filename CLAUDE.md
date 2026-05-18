@@ -1,11 +1,11 @@
 <!-- SPECKIT START -->
-**Active feature**: `003-phase-2-portfolio` (Phase 2 — Portfolio Page, Zhang et al. 2020)
+**Active feature**: `004-phase-3-deeplob` (Phase 3 — Order Book / DeepLOB, Zhang et al. 2019)
 
-**Spec**: [specs/003-phase-2-portfolio/spec.md](specs/003-phase-2-portfolio/spec.md)
+**Spec**: [specs/004-phase-3-deeplob/spec.md](specs/004-phase-3-deeplob/spec.md) · [plan.md](specs/004-phase-3-deeplob/plan.md) · [tasks.md](specs/004-phase-3-deeplob/tasks.md)
 
-**Plan**: TBD (run /speckit-plan)
+**Phase 2 reference** (live on HF Space, merged into main): [specs/003-phase-2-portfolio/spec.md](specs/003-phase-2-portfolio/spec.md), [tasks.md](specs/003-phase-2-portfolio/tasks.md)
 
-**Phase 1 reference** (live on HF Space, merged into main): [specs/002-phase-1-momentum/spec.md](specs/002-phase-1-momentum/spec.md), [tasks.md](specs/002-phase-1-momentum/tasks.md)
+**Phase 1 reference** (merged into main): [specs/002-phase-1-momentum/spec.md](specs/002-phase-1-momentum/spec.md), [tasks.md](specs/002-phase-1-momentum/tasks.md)
 
 **Phase 0 reference** (merged into main): [specs/001-phase-0-skeleton-data/plan.md](specs/001-phase-0-skeleton-data/plan.md)
 
@@ -17,5 +17,5 @@
 
 **Note**: `Project_brief.md` (referenced above) was written assuming Colab Pro. The constitution at v1.1.0 supersedes that choice — when the brief mentions "Colab", read it as "Modal" until the brief is reconciled in a later edit.
 
-When taking on Phase 0 work, read `specs/001-phase-0-skeleton-data/plan.md` first, then `quickstart.md` for the operator walkthrough, then the four files in `contracts/` for module-level interface contracts.
+When taking on Phase 3 work, read `specs/004-phase-3-deeplob/plan.md` first, then `quickstart.md` for the operator walkthrough, then the four contract files for module-level interface contracts (`lob_models.md`, `train_deeplob_cli.md`, `fetch_lob_fi2010_cli.md`, `order_book_page_ui.md`). Phase 3 introduces the FI-2010 benchmark + the Kaggle `praanj/limit-orderbook-data` fetch path; the full parquet is dev-machine + Modal Volume only — only `data/lob_fi2010_demo.parquet` (~2 MB) ships in git.
 <!-- SPECKIT END -->
