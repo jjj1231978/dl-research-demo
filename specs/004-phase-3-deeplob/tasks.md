@@ -49,9 +49,9 @@ description: "Task list for Phase 3 — DeepLOB Page (Zhang et al. 2019)"
 
 ## Phase 6: Polish + Deploy
 
-- [ ] T029 Run full `pytest -v` — ~106 tests.
-- [ ] T030 Merge `004-phase-3-deeplob` → main.
-- [ ] T031 Push to GitHub + HF, wait for rebuild, verify Order Book card live.
+- [x] T029 Run full `pytest -v` — ~106 tests. *(115 passed, 0 skipped after US2 checkpoints landed.)*
+- [x] T030 Merge `004-phase-3-deeplob` → main. *(Merge commit 43c1488; no-ff to preserve branch history.)*
+- [x] T031 Push to GitHub + HF, wait for rebuild, verify Order Book card live.
 
 ## Dependencies
 
