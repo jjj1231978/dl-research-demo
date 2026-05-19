@@ -227,6 +227,11 @@ def render_data_status_sidebar(sidebar) -> None:
     sidebar.markdown("## Data status")
 
     for universe in UNIVERSES.values():
+        # aapl_toy is a single-asset CSV fallback used only by the Momentum
+        # page's toy mode; listing it in the landing sidebar adds noise, so
+        # skip it here.
+        if universe.name == "aapl_toy":
+            continue
         snapshot = get_data_snapshot(universe)
         if snapshot.source_kind == "parquet":
             icon = "✓"
