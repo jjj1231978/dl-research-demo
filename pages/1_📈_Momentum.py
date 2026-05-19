@@ -182,7 +182,7 @@ else:
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["1. Problem & Data", "2. Reference Models",
-     "3. Deep Method", "4. Exhibits 2/3/4/5"]
+     "3. Deep Learning Methodology", "4. Key Results"]
 )
 
 
@@ -442,7 +442,7 @@ with tab3:
 # ─── Tab 4: Exhibits 2/3/4/5 ──────────────────────────────────────────
 
 with tab4:
-    st.subheader("Exhibits 2 / 3 / 4 / 5 replication")
+    st.subheader("Key results — replicating Lim, Zohren, Roberts 2019 Exhibits 2 / 3 / 4 / 5")
     st.caption("`(reproduced here)` from Lim, Zohren, Roberts 2019, with the "
                "BCOM commodities-only substrate disclosed in Tab 1.")
 
@@ -451,8 +451,12 @@ with tab4:
                 "exhibits.")
     else:
         sub4a, sub4b, sub4c, sub4d = st.tabs(
-            ["4A. Exhibit 2 (Raw)", "4B. Exhibit 3 (Rescaled)",
-             "4C. Exhibit 4 (Cum. Returns)", "4D. Exhibit 5 (Per-Asset)"]
+            [
+                "Raw TSMOM Performance (no rescaling, paper Exhibit 2)",
+                "Rescaled TSMOM Performance (σ_target=15%, paper Exhibit 3)",
+                "Cumulative Returns (rescaled, paper Exhibit 4)",
+                "Per-Asset Sharpe / Return / Vol Distributions (paper Exhibit 5)",
+            ]
         )
 
         # Map paper-column-name → report_metrics key (research.md R8)
