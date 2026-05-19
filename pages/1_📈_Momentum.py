@@ -422,21 +422,21 @@ with tab3:
     else:
         st.info("Backtest panel not yet generated; run `scripts/run_backtests.py --momentum`.")
 
-    with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s", expanded=False):
+    with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s on CPU", expanded=False):
         st.markdown(
-            "Runs a 1-epoch CPU smoke training on a 1-contract × 1-year "
-            "subset of the futures panel (Constitution Principle III — "
-            "production inference only; this button is illustrative)."
+            "The Streamlit app itself does no training (Constitution "
+            "Principle III — production inference only). To run a 1-epoch "
+            "CPU smoke training on a 1-contract × 1-year subset of the "
+            "futures panel locally, use the CLI:"
+        )
+        st.code(
+            f"python -m src.training.train_deep_momentum --arch {archs_to_show[0]} --max-epochs 1 -v",
+            language="bash",
         )
         if not parquet_present:
-            st.warning("Need a fetched parquet to run this. See sidebar.")
-        elif st.button("Run smoke training", key="momentum_train_button"):
-            with st.spinner("Smoke training on a single contract..."):
-                st.info(
-                    "Smoke training not wired in Phase 1 page; use the CLI: "
-                    "`python -m src.training.train_deep_momentum --arch "
-                    f"{archs_to_show[0]} --max-epochs 1 -v`"
-                )
+            st.caption(
+                "⚠ The CLI needs a fetched futures parquet — see the **Data status** sidebar."
+            )
 
 
 # ─── Tab 4: Exhibits 2/3/4/5 ──────────────────────────────────────────
