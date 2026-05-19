@@ -226,11 +226,14 @@ def render_data_status_sidebar(sidebar) -> None:
 
     sidebar.markdown("## Data status")
 
+    # Universes intentionally hidden from the landing sidebar:
+    # - aapl_toy: single-asset CSV fallback used only by Momentum toy mode.
+    # - sp500_100: per OD-2 the 100-stock universe is deferred; surfacing a
+    #   permanent "Not yet available" row adds noise.
+    _HIDDEN_FROM_SIDEBAR = {"aapl_toy", "sp500_100"}
+
     for universe in UNIVERSES.values():
-        # aapl_toy is a single-asset CSV fallback used only by the Momentum
-        # page's toy mode; listing it in the landing sidebar adds noise, so
-        # skip it here.
-        if universe.name == "aapl_toy":
+        if universe.name in _HIDDEN_FROM_SIDEBAR:
             continue
         snapshot = get_data_snapshot(universe)
         if snapshot.source_kind == "parquet":
@@ -243,10 +246,7 @@ def render_data_status_sidebar(sidebar) -> None:
             )
         else:
             icon = "⊝"
-            if universe.name == "sp500_100":
-                caption = "Not yet available — 100-ticker list pending confirmation (see OD-2)"
-            else:
-                caption = "Not yet available"
+            caption = "Not yet available"
         sidebar.markdown(f"**{icon} {universe.label}** — {caption}")
 
     sidebar.divider()
