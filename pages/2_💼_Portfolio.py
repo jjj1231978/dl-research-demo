@@ -176,7 +176,7 @@ else:
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["1. Problem & Data", "2. Classical Benchmarks",
-     "3. Deep Method", "4. Table 1 / Figure 3"]
+     "3. Deep Method", "4. Key Results"]
 )
 
 
@@ -242,6 +242,48 @@ with tab1:
 
 with tab2:
     st.subheader("Classical benchmarks")
+
+    st.markdown(
+        "**The five allocation paradigms** (paper §4 + `src/strategies/portfolios.py`):\n\n"
+        "- **Equal Weight** — `w_i = 1/N`. The simplest possible benchmark: "
+        "no estimation, no parameters, no optimisation.\n"
+        "- **Min Variance** (Markowitz 1952) — minimises `w'Σw` subject to "
+        "`Σw = 1, w ≥ 0`, with a Ledoit-Wolf shrunk covariance estimated "
+        "on the rolling window. Safety-first; ignores expected returns.\n"
+        "- **Max Diversification** (Choueifaty & Coignard 2008) — maximises "
+        "the diversification ratio `(w' σ) / √(w' Σ w)`, concentrating "
+        "weight in low-correlation assets.\n"
+        "- **Diversity Weighted** (Samo & Vervuurt 2016) — "
+        "`w_i ∝ μ_i^p` with `μ` the normalised market-cap vector and "
+        "`p = 0.5` (a smoothed cap-weight; `p = 1` is pure cap-weight, "
+        "`p = 0` collapses to 1/N). Skipped on the ETF basket when FMP's "
+        "shares-outstanding endpoint returns sparse data.\n"
+        "- **Fixed allocation 25/25/25/25, 50/10/20/20, 10/50/20/20, "
+        "40/40/10/10** (ETF basket only) — the paper's pre-specified static "
+        "weights across VTI / AGG / DBC / VIXY, included to show that simple "
+        "fixed weights are surprisingly hard to beat."
+    )
+    st.markdown(
+        "**Rebalancing and sample period.** Classical methods rebalance "
+        "**daily**, computing weights from the trailing 50-day window of "
+        "returns (sidebar slider, default 50). The deep checkpoint is "
+        "trained on **2006-06 → 2019-12** and evaluated on **2020-01 → "
+        "today** (the same train/test split is honoured by classical "
+        "rolling estimation — no data from the test window leaks into "
+        "training)."
+    )
+    st.markdown(
+        "**Panel labels.** `σ = 10 %` means each method's daily portfolio "
+        "return is rescaled to an ex-ante 10 % annualized volatility target, "
+        "so Sharpe and drawdown are directly comparable across methods. "
+        "`C = 0.01 %` (or `C = 0.10 %`) is the per-turnover transaction "
+        "cost — 1 basis point (or 10 bp) applied to the absolute change in "
+        "weights between rebalances. The paper reports three panels: no "
+        "scaling at 1 bp, scaled at 1 bp, scaled at 10 bp — the same three "
+        "Tab 4 reproduces."
+    )
+    st.divider()
+
     if backtest_panel.empty:
         st.info(
             "No backtest panel available. Run "
@@ -327,6 +369,30 @@ with tab3:
             f"Run `modal run src/training/train_deep_portfolio.py --universe {universe}`."
         )
 
+    st.markdown(
+        "**What the two charts below show.**\n\n"
+        "- **Left** — the Deep Portfolio's equity curve (log scale) "
+        "overlaid against the **single best classical benchmark** for the "
+        "current vol-scaling × transaction-cost panel (best = highest "
+        "Sharpe among the non-deep methods).\n"
+        "- **Right** — the Deep Portfolio's per-day portfolio return, useful "
+        "for spotting whether the gain is steady compounding or a handful "
+        "of outsize days.\n\n"
+        "**The story.** Both the classical methods and the deep model see "
+        "the same 50-day lookback of returns. The classical pipeline feeds "
+        "that window into a covariance estimator and a quadratic program "
+        "(Min Variance, Max Diversification), or into a closed-form "
+        "weighting rule (Equal Weight, Diversity Weighted, Fixed). The deep "
+        "pipeline feeds the same window into an MLP whose **softmax output "
+        "*is* the weight vector**, trained end-to-end so gradients from "
+        "negative Sharpe flow back into the allocation decision — no μ "
+        "forecast, no Σ estimate, no QP. If the bypass-and-optimise pattern "
+        "is doing real work on this universe, the deep curve should sit on "
+        "or above the best-classical curve through the test window — and "
+        "since both lines run on the same σ-target panel, the difference "
+        "isn't just gross-vol cheating."
+    )
+
     if not backtest_panel.empty:
         deep_rows = backtest_panel[
             (backtest_panel["method"] == "deep_portfolio")
@@ -392,14 +458,19 @@ with tab3:
 
 
 with tab4:
-    st.subheader("Table 1 / Figure 3 replication")
-    st.caption("`(reproduced here)` from Zhang, Zohren, Roberts 2020.")
+    st.subheader("Key Results — replicating Zhang, Zohren, Roberts 2020")
+    st.caption(
+        "Paper Table 1 and Figure 3, reproduced on the universe selected "
+        "in the sidebar. Substrate caveats from Tab 1 apply."
+    )
 
     if backtest_panel.empty:
         st.info("Run `scripts/run_backtests.py --portfolio` to populate.")
     else:
-        sub4a, sub4b = st.tabs(["4A. Table 1 (Performance)",
-                                   "4B. Figure 3 (Cumulative Returns)"])
+        sub4a, sub4b = st.tabs([
+            "Performance Across Methods (paper Table 1)",
+            "Cumulative Returns Across Methods (paper Figure 3)",
+        ])
 
         def _panel_metric_table(p):
             rows = []
@@ -420,6 +491,20 @@ with tab4:
             return pd.DataFrame(rows)
 
         with sub4a:
+            st.markdown(
+                "**What Table 1 is in the paper.** The paper's central "
+                "comparison: an 8-column performance summary — mean "
+                "return, volatility, downside deviation, maximum drawdown, "
+                "Sharpe, Sortino, % positive returns, and average "
+                "win/loss ratio — across all nine methods, repeated for "
+                "**three transaction-cost × vol-scaling panels**. The "
+                "argument it makes: Deep Portfolio's Sharpe ranks in the "
+                "top tier across all three panels, including the "
+                "high-cost panel — robustness to transaction costs is a "
+                "key claim of the paper, not just point-estimate Sharpe.\n\n"
+                "**Replication target: Table 1.**"
+            )
+            st.divider()
             for p in _PANELS:
                 st.markdown(f"### Panel: {p['label']}")
                 df = _panel_metric_table(p)
@@ -427,8 +512,36 @@ with tab4:
                     st.info("(no rows for this panel)")
                 else:
                     st.dataframe(df, hide_index=True, width="stretch")
+            st.markdown(
+                "**What to look for.** In the no-scaling panel (Panel 1), "
+                "the Vol column varies widely across methods — direct "
+                "Sharpe comparison is misleading at this stage, exactly "
+                "the same reason Momentum Exhibit 2 isn't the fair view. "
+                "Once we rescale to σ = 10 % (Panels 2 and 3), Sharpe is "
+                "directly comparable. The paper's claim is that Deep "
+                "Portfolio sits at or near the top of the Sharpe column "
+                "in both rescaled panels, and that the gap to classical "
+                "benchmarks doesn't collapse when transaction costs jump "
+                "10× (1 bp → 10 bp). On this substrate the qualitative "
+                "ordering is expected to hold; absolute Sharpes run lower "
+                "than the paper because our test window is **2020+**, "
+                "which includes the COVID drawdown, vs the paper's "
+                "pre-2020 window."
+            )
 
         with sub4b:
+            st.markdown(
+                "**What Figure 3 is in the paper.** Three side-by-side "
+                "cumulative-return curves (log scale) of all nine "
+                "methods — one column per (vol-scaling × cost) panel — "
+                "the visual restatement of Table 1. The eye is drawn to "
+                "two things: which curves end highest at the right edge "
+                "(terminal wealth) and which curves stay shallowest "
+                "during stress drawdowns (the 2020 vol spike acts as the "
+                "natural stress test on our test window).\n\n"
+                "**Replication target: Figure 3.**"
+            )
+            st.divider()
             cols = st.columns(3)
             for col, p in zip(cols, _PANELS):
                 with col:
@@ -451,20 +564,59 @@ with tab4:
                     fig.update_layout(yaxis_type="log", height=420,
                                        showlegend=True)
                     st.plotly_chart(fig, width="stretch")
+            st.markdown(
+                "**What to look for.** Left → right, the panels add "
+                "(1) vol-scaling, then (2) higher transaction costs. A "
+                "deep model that competes only at low cost is "
+                "uninteresting; the paper's specific point is that the "
+                "Deep Portfolio's edge **persists in the rightmost "
+                "panel** (high cost, scaled), where high-turnover "
+                "classical methods bleed performance to trading costs."
+            )
 
 
 with st.expander("📐 Math", expanded=False):
-    st.markdown("**Softmax output (long-only simplex)**")
+    st.markdown(
+        "**1 · The decision — what weight to put on each asset?**\n\n"
+        "The network outputs raw scores $\\tilde w_1, \\dots, \\tilde w_N$ "
+        "(one per asset), then a softmax converts them to weights:"
+    )
     st.latex(r"w_i = \frac{e^{\tilde w_i}}{\sum_j e^{\tilde w_j}}, \quad w_i \in [0,1], \; \sum_i w_i = 1")
-    st.caption("Long-only allocation by construction; no projection step at inference.")
+    st.caption(
+        "By construction every weight is non-negative and they sum to 1 — "
+        "a long-only allocation, no short selling, no leverage. No "
+        "projection or constrained optimiser is needed; the softmax "
+        "*is* the constraint."
+    )
 
-    st.markdown("**Sharpe-loss objective** (paper Eq. 4 + Phase 1's per-day aggregation)")
+    st.markdown(
+        "**2 · The objective — maximise Sharpe directly.**\n\n"
+        "For each trading day $t$, the portfolio P&L is the weighted sum "
+        "of next-day asset returns. Take the empirical Sharpe of that P&L "
+        "series over the lookback window, negate it (so SGD's descent "
+        "direction becomes Sharpe's ascent direction):"
+    )
     st.latex(r"\mathcal{L} = -\frac{\mathbb{E}_t[R_t]}{\sigma_t[R_t]}, \quad R_t = \sum_i w_{i,t} \cdot r_{i,t+1}")
-    st.caption("Per-day portfolio P&L via Σ across assets, then Sharpe over the time series.")
+    st.caption(
+        "No expected-return forecast, no covariance matrix — the loss "
+        "reads only the realised P&L. Gradients flow from the financial "
+        "objective straight through the weight vector and into the "
+        "network parameters."
+    )
 
-    st.markdown("**Volatility scaling** (paper §4.4)")
+    st.markdown(
+        "**3 · The post-processing — rescale to a fixed risk budget.**\n\n"
+        "Different methods naturally run at different volatilities, so a "
+        "raw Sharpe comparison is unfair. Rescale every daily P&L to a "
+        "target annualised vol $\\sigma_\\mathrm{target}$ using an EWMA "
+        "estimate $\\hat\\sigma_t$ of recent realised vol:"
+    )
     st.latex(r"R_t^{\mathrm{scaled}} = R_t \cdot \frac{\sigma_{\mathrm{target}}}{\hat \sigma_t}")
-    st.caption(r"$\sigma_\mathrm{target} = 0.10$ per Table 1.")
+    st.caption(
+        r"With $\sigma_\mathrm{target} = 0.10$ (paper Table 1), all "
+        "methods land on the same ex-ante vol budget — Sharpe and "
+        "drawdown become directly comparable across rows."
+    )
 
 
 with st.expander("💻 Code", expanded=False):
