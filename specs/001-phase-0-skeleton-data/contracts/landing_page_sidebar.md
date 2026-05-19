@@ -8,8 +8,12 @@ of named widgets.
 ## Visual order (top to bottom)
 
 1. **Heading**: `## Data status` (markdown level-2 inside the sidebar).
-2. **Per-universe rows** (one per universe in `src.universes.UNIVERSES`,
-   rendered in the order ETF → 20-stock → 100-stock → CME → AAPL):
+2. **Per-universe rows** (one row per universe in `src.universes.UNIVERSES`,
+   rendered in the order ETF → 20-stock → 100-stock → CME). The `aapl_toy`
+   universe is intentionally skipped: it is consumed only by the Momentum
+   page's single-asset toy fallback (which reads `data/aapl.csv` directly
+   via `BUNDLED_CSV_DIR`) and listing it here added noise to every page's
+   sidebar.
    - Icon column: `✓` (parquet), `⚠` (CSV fallback), `⊝` (missing).
    - Label column: `Universe.label`.
    - Caption column: refresh date or fallback notice text.
