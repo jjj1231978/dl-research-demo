@@ -281,6 +281,35 @@ with tab1:
         "Sharpe values differ from the paper."
     )
 
+    with st.expander("📖 Ticker legend — what each BCOM root stands for", expanded=False):
+        st.markdown(
+            "Ticker symbols on the Gantt chart and single-asset selector are "
+            "the futures root codes used by the developer's databento lake. "
+            "Sector grouping mirrors `src/data/futures/__init__.py`."
+        )
+        st.markdown(
+            "| Sector | Ticker | Underlying | Primary venue |\n"
+            "|---|---|---|---|\n"
+            "| Energy | CL  | WTI Crude Oil           | NYMEX |\n"
+            "| Energy | CB  | ICE Brent Crude         | ICE |\n"
+            "| Energy | NG  | Natural Gas (Henry Hub) | NYMEX |\n"
+            "| Energy | RB  | RBOB Gasoline           | NYMEX |\n"
+            "| Energy | HO  | NY Harbor ULSD (Heating Oil) | NYMEX |\n"
+            "| Grains | ZC  | Corn          | CBOT |\n"
+            "| Grains | ZS  | Soybeans      | CBOT |\n"
+            "| Grains | ZW  | Chicago SRW Wheat | CBOT |\n"
+            "| Grains | ZL  | Soybean Oil   | CBOT |\n"
+            "| Grains | ZM  | Soybean Meal  | CBOT |\n"
+            "| Livestock | LE | Live Cattle  | CME |\n"
+            "| Livestock | HE | Lean Hogs    | CME |\n"
+            "| Base metals | HG  | Copper    | COMEX |\n"
+            "| Base metals | ALI | Aluminum  | COMEX |\n"
+            "| Base metals | ZNC | Zinc      | LME-linked |\n"
+            "| Base metals | NI  | Nickel    | LME-linked |\n"
+            "| Precious metals | GC | Gold     | COMEX |\n"
+            "| Precious metals | SI | Silver   | COMEX |\n"
+        )
+
 
 # ─── Tab 2: Reference Models ──────────────────────────────────────────
 
@@ -502,11 +531,34 @@ with tab4:
             st.markdown("**Exhibit 2** — raw signal outputs (no σ_target rescaling)")
             df4a = _metric_table(vol_flag=False)
             st.dataframe(df4a, hide_index=True, width="stretch")
+            st.markdown(
+                "**What to look for**: With no σ-target rescaling, each "
+                "strategy runs at its native volatility — the metric table "
+                "mixes scales, so direct Sharpe-vs-Sharpe comparison across "
+                "rows is misleading. The headline finding from the paper is "
+                "that the deep Sharpe-loss models already out-Sharpe the "
+                "classical signals even before fair-volatility rescaling, "
+                "because the Sharpe loss implicitly de-leverages high-vol "
+                "periods. Exhibit 3 is the fair-comparison view."
+            )
 
         with sub4b:
             st.markdown("**Exhibit 3** — all strategies rescaled to σ_target = 15 %")
             df4b = _metric_table(vol_flag=True)
             st.dataframe(df4b, hide_index=True, width="stretch")
+            st.markdown(
+                "**What to look for**: All strategies now run at the same "
+                "ex-ante 15 % vol target, so Sharpe and drawdown are directly "
+                "comparable. The paper's qualitative ordering — "
+                "LSTM-Sharpe ≥ MLP-Sharpe > MACD > Sgn(Returns) > Long Only — "
+                "is expected to survive the BCOM commodities-only substrate, "
+                "though absolute Sharpe values run lower than the paper "
+                "because we lack the cross-asset-class diversification of "
+                "the original Pinnacle dataset (commodities + bonds + "
+                "equities + FX). The Sortino and Calmar columns matter here: "
+                "deep models tend to improve both, suggesting the gain isn't "
+                "just symmetric tail-risk compression."
+            )
 
         with sub4c:
             st.markdown("**Exhibit 4 (panel a)** — cumulative returns, σ_target rescaled")
@@ -525,6 +577,17 @@ with tab4:
             fig4c.update_layout(yaxis_type="log", height=460,
                                   title="Cumulative return (log scale)")
             st.plotly_chart(fig4c, width="stretch")
+            st.markdown(
+                "**What to look for**: On a log scale, parallel lines mean "
+                "equal compound returns. Deep-model curves sitting above the "
+                "classical ones is the visual restatement of Exhibit 3's "
+                "Sharpe ordering. Watch the 2020 COVID volatility spike — "
+                "paper Exhibit 4 panel b's specific claim is that deep "
+                "models cut gross exposure when realised volatility rises, "
+                "so their drawdowns through that window are typically "
+                "shallower than classical signals at the same nominal vol "
+                "target."
+            )
 
         with sub4d:
             st.markdown("**Exhibit 5** — per-asset distributions across the 5 strategies")
@@ -556,6 +619,19 @@ with tab4:
                                  title=metric)
                     fig.update_layout(height=340, showlegend=False)
                     col.plotly_chart(fig, width="stretch")
+                st.markdown(
+                    "**What to look for**: Each box is the distribution of a "
+                    "single metric across the 18 BCOM contracts under one "
+                    "strategy. The paper's argument is that joint training "
+                    "transfers features across instruments, so the "
+                    "deep-model boxes for Sharpe should be tighter (narrower "
+                    "box, fewer per-asset losers) than the classical "
+                    "signals, whose dispersion reflects \"some contracts "
+                    "trend, others don't\". The Average return and "
+                    "Volatility panels are diagnostic — they tell you "
+                    "whether any Sharpe gain is coming from higher returns, "
+                    "controlled vol, or both."
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────
