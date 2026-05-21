@@ -847,6 +847,36 @@ with tab4:
                 "Best F1 row is at the top. Paper-reported entries are "
                 "from Zhang et al. 2019 Table II (Setup 2, k=10)."
             )
+            st.markdown(
+                "**What to look for.** The headline ordering on the "
+                "**reproduced** rows is `DeepLOB > CNN-II > CNN-I > LSTM "
+                ">> LDA > MLP` — exactly the ablation Zhang et al. argue "
+                "for. The conv stack carries most of the lift: dropping "
+                "the third (whole-book) conv block (CNN-II → CNN-I) loses "
+                "~10 F1 points, and removing convolutions entirely (MLP) "
+                "collapses below LDA because a fully-connected layer over "
+                "4000 raw features has no inductive bias for the "
+                "(time × depth × side) structure of the LOB. The "
+                "Inception module on top of the conv stack adds another "
+                "~2 F1 (DeepLOB vs CNN-II).\n\n"
+                "**Accuracy vs F1 gap.** Notice DeepLOB hits ~83% "
+                "accuracy but only ~71 macro-F1. That gap is the "
+                "fingerprint of the FI-2010 class imbalance — the test "
+                "set is ~70% *stationary*, so any model that defaults to "
+                "the middle class earns easy accuracy points while "
+                "macro-F1 still penalises the bad per-class recall. The "
+                "next two sub-tabs unpack exactly where those errors "
+                "land.\n\n"
+                "**Reproduction gap to paper.** Our DeepLOB row sits a "
+                "few F1 points below the paper-reported TABL family. "
+                "Plausible drivers: we trained one model per arch with a "
+                "fixed seed (no ensembling), our Modal T4 epoch budget "
+                "(~53 epochs, early-stopped) is shorter than the paper's "
+                "schedule, and we use the Kaggle "
+                "`praanj/limit-orderbook-data` redistribution which has "
+                "~394k ticks (vs ~4.3M in the original release) — see "
+                "the Substrate disclosure in Tab 1."
+            )
 
         with sub4b:
             st.markdown(
@@ -892,6 +922,27 @@ with tab4:
                             height=320,
                         )
                         st.plotly_chart(fig_cm, width="stretch")
+                st.markdown(
+                    "**What to look for.** Read each matrix row-wise — "
+                    "*given* the true class, where do predictions land? "
+                    "The **middle row** (`actual = stationary`) is almost "
+                    "all on the diagonal across every architecture — "
+                    "easy class, ~96% recall. The **top and bottom rows** "
+                    "(`actual = down` / `actual = up`) tell the real "
+                    "story: a meaningful chunk of mass leaks *sideways* "
+                    "into the stationary column rather than getting "
+                    "confused with the opposite direction. On DeepLOB "
+                    "specifically, about **40-45%** of true `down` "
+                    "windows are predicted `stationary`, and the symmetric "
+                    "pattern holds for `up`. Cross-direction confusion "
+                    "(predicting `up` when truth is `down`, or vice "
+                    "versa) is rare — the off-diagonal corners are sparse "
+                    "— so the failure mode is *under-confidence*, not "
+                    "*wrong-direction*. In trading terms: the model "
+                    "misses many tradable signals (recall problem) but "
+                    "the trades it does take are unlikely to fire in the "
+                    "wrong direction (precision is healthier)."
+                )
 
         with sub4c:
             st.markdown(
@@ -938,6 +989,34 @@ with tab4:
                 )
                 fig_perc.update_layout(yaxis_title="Per-class F1 (×100)")
                 st.plotly_chart(fig_perc, width="stretch")
+                st.markdown(
+                    "**What to look for.** The **grey** (`stationary`) "
+                    "bars dominate every architecture — every model is "
+                    "competent at the easy class. The interesting "
+                    "comparison is the **red** (`down`) and **green** "
+                    "(`up`) bars, which capture how well a model picks "
+                    "up *directional* moves at horizon k=10.\n\n"
+                    "- **Symmetry check**: red ≈ green within each "
+                    "method is what you want — the two directional "
+                    "classes are roughly balanced (~15% each of the "
+                    "test set), so an asymmetric red/green gap would "
+                    "flag a directional bias that macro-F1 hides.\n"
+                    "- **Architectural pattern**: the *spread* between "
+                    "the grey bar and the down/up bars shrinks as the "
+                    "architecture gets better — DeepLOB and CNN-II are "
+                    "the only models where the directional bars get "
+                    "anywhere close to the stationary bar. MLP "
+                    "collapses entirely on the directional classes "
+                    "(per-class F1 near zero on `down`/`up`) — its "
+                    "headline 23% macro-F1 is essentially just its "
+                    "stationary-class score divided by three.\n"
+                    "- **Why this matters for trading**: P&L only "
+                    "accumulates from correctly-called *directional* "
+                    "windows. A model with a great stationary-F1 but "
+                    "poor down/up-F1 is, in practice, just a "
+                    "regime-quiet detector — useful as a filter, not "
+                    "as an entry signal."
+                )
 
 
 with st.expander("📐 Math", expanded=False):
