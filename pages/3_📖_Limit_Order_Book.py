@@ -554,40 +554,63 @@ with tab3:
     with sub3a:
         st.subheader("DeepLOB — CNN + Inception + LSTM")
         st.markdown(
-            "DeepLOB threads three conv blocks through a parallel-filter "
-            "Inception module into a final LSTM. Each conv block has a "
-            "specific purpose:"
+            "Architecture diagram (Zhang, Zohren, Roberts 2019, Fig. 3). "
+            "Three sequential conv blocks reduce the LOB matrix to a "
+            "per-tick channel vector; an Inception module of three "
+            "parallel-filter branches captures multi-scale temporal "
+            "patterns; an LSTM consumes the time axis; a softmax head "
+            "emits a 3-class direction probability."
         )
-        st.code(
-            """
-input (B, 1, T=100, 40)
-                ↓
-Conv-Block-1   pairs bid/ask price-volume across each level
-                Conv2d(1→16, k=(1,2), s=(1,2))   → (B,16,T,20)
-                Conv2d(16→16, k=(4,1)) × 2
-                ↓
-Conv-Block-2   joins adjacent depth levels
-                Conv2d(16→16, k=(1,2), s=(1,2))  → (B,16,T,10)
-                Conv2d(16→16, k=(4,1)) × 2
-                ↓
-Conv-Block-3   collapses the spatial axis to 1
-                Conv2d(16→16, k=(1,10))           → (B,16,T,1)
-                Conv2d(16→16, k=(4,1)) × 2
-                ↓
-Inception      three parallel branches
-                (1×1 → 3×1) + (1×1 → 5×1) + (MaxPool → 1×1)
-                concat along channel dim          → (B,96,T,1)
-                ↓
-LSTM(96→64, batch_first=True), take last time-step
-Linear(64 → 3), Softmax → (B, 3)
-""",
-            language="text",
+        st.graphviz_chart(
+            r"""
+digraph DeepLOB {
+    rankdir=TB
+    bgcolor="transparent"
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.15,0.08"]
+    edge [arrowsize=0.7, color="#666"]
+
+    input  [label="Input LOB tensor\n(B, 1, T=100, 40)\nrows = ticks, cols = 10 levels × (price, vol) × {bid, ask}", fillcolor="#E8F4FD"]
+
+    conv1  [label="Conv Block 1   —   pair (price, volume)\nConv2d(1 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 20)", fillcolor="#FFF4E0"]
+    conv2  [label="Conv Block 2   —   merge bid/ask sides\nConv2d(16 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 10)", fillcolor="#FFF4E0"]
+    conv3  [label="Conv Block 3   —   collapse depth axis\nConv2d(16 → 16, k=(1,10))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 1)", fillcolor="#FFF4E0"]
+
+    subgraph cluster_inception {
+        label="Inception module (parallel multi-scale filters)"
+        labelloc="t"
+        fontsize=10
+        fontcolor="#444"
+        style="rounded,dashed"
+        color="#999"
+        margin=12
+
+        inc1 [label="1×1 Conv → 3×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
+        inc2 [label="1×1 Conv → 5×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
+        inc3 [label="MaxPool 3×1 → 1×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
+    }
+
+    concat [label="Concat along channels\n(B, 96, T, 1)", fillcolor="#FFF0F0"]
+    lstm   [label="LSTM(input=96 → hidden=64, batch_first=True)\ntake last time-step → (B, 64)", fillcolor="#F0E8FB"]
+    fc     [label="Linear(64 → 3) + Softmax\n→ (B, 3)", fillcolor="#FBE8E8"]
+    output [label="P(down),  P(stat),  P(up)", fillcolor="#E8F4FD"]
+
+    input -> conv1 -> conv2 -> conv3
+    conv3 -> inc1
+    conv3 -> inc2
+    conv3 -> inc3
+    inc1  -> concat
+    inc2  -> concat
+    inc3  -> concat
+    concat -> lstm -> fc -> output
+}
+"""
         )
         st.caption(
             "~140k parameters total. The Inception module is the "
             "Network-in-Network idea from Szegedy et al. 2015: parallel "
             "filters of different widths capture multi-scale temporal "
-            "patterns before the LSTM."
+            "patterns before the LSTM. All conv kernels use LeakyReLU "
+            "activations (omitted from the diagram for readability)."
         )
 
     with sub3b:
