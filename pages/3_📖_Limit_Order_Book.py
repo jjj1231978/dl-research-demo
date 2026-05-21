@@ -459,16 +459,34 @@ with tab2:
     st.subheader(f"Classical baseline — {classical_label}")
     if classical_choice == "VWM":
         st.markdown(
-            "**Gatheral & Oomen (2010) volume-weighted mid-price.** "
-            "`P_VW = (V_b·P_a + V_a·P_b)/(V_b+V_a)` at level 1 — bid price "
-            "weighted by *ask* volume and vice versa. The microprice "
-            "deviation `P_VW − P_mid` has the same sign as the L1 depth "
-            "imbalance `I = (V_b − V_a)/(V_b + V_a)`, so we use **I at the "
-            "last tick** of each lookback window as the directional signal. "
-            "Two thresholds `(τ_down, τ_up)` are calibrated on the training "
-            "labels by quantile-matching, then `I < τ_down ⇒ down`, "
-            "`I > τ_up ⇒ up`, else `stat`. No SVD, no SGD — just a "
-            "depth-imbalance heuristic, the floor every deep model should beat."
+            "**Gatheral & Oomen (2010) volume-weighted mid-price.** The "
+            "bid price is weighted by the *ask* volume and vice versa — "
+            "the side with thicker depth pulls fair value toward the "
+            "opposite quote:"
+        )
+        st.latex(r"P_{\text{VW}} = "
+                 r"\frac{V_{\text{bid}}\,P_{\text{ask}} + V_{\text{ask}}\,P_{\text{bid}}}"
+                 r"{V_{\text{bid}} + V_{\text{ask}}}")
+        st.markdown(
+            "The deviation $P_{\\text{VW}} - P_{\\text{mid}}$ has the same "
+            "sign as the **level-1 depth imbalance**:"
+        )
+        st.latex(r"I = \frac{V_{\text{bid}} - V_{\text{ask}}}"
+                 r"{V_{\text{bid}} + V_{\text{ask}}} \in [-1, +1]")
+        st.markdown(
+            "So we use $I$ at the **last tick** of each lookback window as "
+            "the directional signal. Two thresholds "
+            r"$(\tau_{\text{down}}, \tau_{\text{up}})$ are calibrated on "
+            "the training labels by quantile-matching (so the predicted "
+            "class frequencies equal the realized ones), then:"
+        )
+        st.latex(r"\hat{y} = "
+                 r"\begin{cases} 0\;(\text{down}) & I < \tau_{\text{down}} \\ "
+                 r"2\;(\text{up}) & I > \tau_{\text{up}} \\ "
+                 r"1\;(\text{stat}) & \text{otherwise} \end{cases}")
+        st.markdown(
+            "No SVD, no SGD — just a depth-imbalance heuristic, the floor "
+            "every deep model should beat."
         )
     if not demo_present:
         st.info(
@@ -507,6 +525,21 @@ with tab2:
             c4.metric("F1 (macro)", f"{f1 * 100:.1f}%")
 
             # Predicted vs realized labels over the test portion
+            st.markdown("**Predicted vs. realized class labels**")
+            st.markdown(
+                "Each x value is one test window (left = earliest, right = "
+                "latest). The y-axis takes only three values — `0 = down`, "
+                "`1 = stat`, `2 = up` — so all dots stack on three "
+                "horizontal stripes:\n\n"
+                f"- **Blue circles**: the *realized* label (ground truth at "
+                f"horizon k={horizon_k}).\n"
+                f"- **Orange ×**: what {classical_label} *predicted*.\n\n"
+                "Whenever an orange × sits on top of a blue circle, the "
+                "classifier got that window right; rows where the orange "
+                "stripe is dense but the blue is sparse (or vice versa) "
+                "reveal class biases — e.g. a baseline that hugs `y=1` is "
+                "just predicting *stationary* for everything."
+            )
             x_axis = np.arange(len(yte))
             sample = min(1500, len(yte))
             sub = np.linspace(0, len(yte) - 1, sample, dtype=int)
