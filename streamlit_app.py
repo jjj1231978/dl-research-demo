@@ -69,7 +69,7 @@ with col2:
 
 """
     )
-    st.page_link("pages/2_💼_Portfolio.py", label="Explore Portfolio →", icon="▶")
+    st.page_link("pages/2_💼_Portfolio_Optimization.py", label="Explore Portfolio Optimization →", icon="▶")
 
 with col3:
     st.markdown(

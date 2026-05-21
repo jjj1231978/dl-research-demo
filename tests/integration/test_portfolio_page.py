@@ -14,7 +14,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PAGE_FILE = str(REPO_ROOT / "pages" / "2_💼_Portfolio.py")
+PAGE_FILE = str(REPO_ROOT / "pages" / "2_💼_Portfolio_Optimization.py")
 
 
 def _make_minimal_etf_parquet(path: Path) -> None:

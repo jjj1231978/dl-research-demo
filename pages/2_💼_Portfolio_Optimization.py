@@ -98,7 +98,7 @@ def _load_backtest_panel(parquet_path_str: str) -> pd.DataFrame:
 
 # ── Sidebar ───────────────────────────────────────────────────────────
 
-st.sidebar.title("💼 Portfolio")
+st.sidebar.title("💼 Portfolio Optimization")
 st.sidebar.markdown("**Zhang, Zohren, Roberts (2020)** — Sharpe-loss only.")
 
 universe_display = st.sidebar.selectbox(
@@ -142,7 +142,7 @@ render_data_status_sidebar(st.sidebar)
 
 # ── Header ────────────────────────────────────────────────────────────
 
-st.title("💼 Portfolio — Zhang, Zohren, Roberts (2020)")
+st.title("💼 Portfolio Optimization — Zhang, Zohren, Roberts (2020)")
 st.markdown(
     "*Deep Learning for Portfolio Optimization* — "
     "[arXiv:2005.13665](https://arxiv.org/abs/2005.13665)"
@@ -630,8 +630,8 @@ with st.expander("💻 Code", expanded=False):
 st.divider()
 st.caption(
     "📄 [arXiv:2005.13665](https://arxiv.org/abs/2005.13665) · "
-    "💻 [pages/2_💼_Portfolio.py on GitHub]"
-    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/2_%F0%9F%92%BC_Portfolio.py) · "
+    "💻 [pages/2_💼_Portfolio_Optimization.py on GitHub]"
+    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/2_%F0%9F%92%BC_Portfolio_Optimization.py) · "
     "Constitution v1.1.0."
 )
 st.code(
