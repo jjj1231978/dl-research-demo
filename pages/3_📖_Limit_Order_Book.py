@@ -686,19 +686,102 @@ digraph DeepLOB {
         st.subheader("Train your own DeepLOB checkpoint")
         st.markdown(
             "Training runs on Modal (Constitution Principle III — the live "
-            "app does not invoke GPUs). The CPU smoke path is a 1-epoch "
-            "synthetic-data test only."
+            "app does not invoke GPUs). End-to-end pipeline below."
+        )
+
+        st.graphviz_chart(
+            r"""
+digraph TrainFlow {
+    rankdir=LR
+    bgcolor="transparent"
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, margin="0.12,0.06"]
+    edge [arrowsize=0.6, color="#666"]
+
+    s1 [label="1. Fetch\nFI-2010 from Kaggle\n→ parquet", fillcolor="#E8F4FD"]
+    s2 [label="2. Train on Modal T4\nDeepLOB / MLP / CNN1\nCNN2 / LSTM", fillcolor="#FFF4E0"]
+    s3 [label="3. Pull artifacts\n.pt + .json sidecar\n→ data/pretrained/", fillcolor="#E8FBE5"]
+    s4 [label="4. Refresh panel\nrun_backtests.py --lob\n→ Tab 4 picks it up", fillcolor="#FFF0F0"]
+    s5 [label="5. Reload the app\nsee new row in Tab 4A", fillcolor="#F0E8FB"]
+
+    s1 -> s2 -> s3 -> s4 -> s5
+}
+"""
+        )
+
+        st.markdown("##### Step 1 — Fetch FI-2010 from Kaggle")
+        st.markdown(
+            "Requires `~/.kaggle/kaggle.json`. The bundled "
+            "`data/lob_fi2010_demo.parquet` (~2 MB) ships in git for the "
+            "live app; the full ~394k-tick parquet is dev-machine + Modal "
+            "Volume only."
         )
         st.code(
-            "# Full training on a Modal T4 (~60 min, ~$0.50)\n"
-            "modal run src/training/train_deeplob.py --arch DeepLOB\n\n"
-            "# Pull the checkpoint\n"
+            "python scripts/fetch_lob_fi2010.py "
+            "--raw-dir ~/kaggle/fi2010",
+            language="bash",
+        )
+
+        st.markdown("##### Step 2 — Train on a Modal T4 GPU")
+        st.markdown(
+            "One arch per invocation. DeepLOB ≈ 60 min / ~$0.50 on a T4; "
+            "the other four archs are faster. The trainer logs val-loss "
+            "per epoch, applies early stopping (patience 10, min_delta "
+            "1e-3), and writes both the `.pt` and a JSON sidecar (final "
+            "metrics + confusion matrix + hyperparameters) to the Modal "
+            "Volume `dl-research-data`."
+        )
+        st.code(
+            "modal run src/training/train_deeplob.py --arch DeepLOB\n"
+            "# also: --arch MLP | CNN1 | CNN2 | LSTM",
+            language="bash",
+        )
+
+        st.markdown("##### Step 3 — Pull the artifacts back local")
+        st.markdown(
+            "Both files are required: the `.pt` for inference and the "
+            "`.json` sidecar so Tab 3B's info card can show training "
+            "provenance (date, Modal image ID, final val_loss / F1)."
+        )
+        st.code(
             "modal volume get dl-research-data "
-            "/pretrained/deeplob_fi2010_k10.pt ./data/pretrained/\n"
+            "/pretrained/deeplob_fi2010_k10.pt   ./data/pretrained/\n"
             "modal volume get dl-research-data "
-            "/pretrained/deeplob_fi2010_k10.json ./data/pretrained/\n\n"
-            "# CPU smoke (synthetic data, 1 epoch)\n"
-            "python -m src.training.train_deeplob --arch DeepLOB --max-epochs 1 -v\n",
+            "/pretrained/deeplob_fi2010_k10.json ./data/pretrained/",
+            language="bash",
+        )
+
+        st.markdown("##### Step 4 — Refresh the results panel")
+        st.markdown(
+            "Re-runs each available checkpoint over the FI-2010 test "
+            "windows, computes accuracy / precision / recall / F1 + the "
+            "3×3 confusion matrix, and overwrites "
+            "`data/backtests/lob_results.parquet` (paper-reported rows "
+            "are appended automatically)."
+        )
+        st.code(
+            "python scripts/run_backtests.py --lob -v",
+            language="bash",
+        )
+
+        st.markdown("##### Step 5 — Reload the Streamlit app")
+        st.markdown(
+            "`st.cache_data` and `st.cache_resource` keep the previous "
+            "panel in memory; a fresh load picks up the new parquet + "
+            "checkpoint. The new arch shows up in **Tab 4A**, its "
+            "confusion matrix appears in **Tab 4B** if it lands in the "
+            "top 3 by F1, and its per-class F1 in **Tab 4C**."
+        )
+
+        st.divider()
+        st.markdown("##### CPU smoke (no Modal, synthetic data)")
+        st.markdown(
+            "For developers who just want to verify the training body "
+            "imports cleanly and runs one epoch end-to-end. Uses a "
+            "random-walk fixture — *not* a real reproduction."
+        )
+        st.code(
+            "python -m src.training.train_deeplob --arch DeepLOB "
+            "--max-epochs 1 -v",
             language="bash",
         )
 
