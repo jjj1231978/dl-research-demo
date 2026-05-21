@@ -277,13 +277,6 @@ horizon_k = st.sidebar.selectbox(
     help="Only k=10 is reproduced locally; others are paper-reported only.",
 )
 
-classical_choice = st.sidebar.selectbox(
-    "Classical baseline",
-    options=list(_CLASSICAL_LABELS),
-    format_func=lambda k: _CLASSICAL_LABELS[k],
-    key="lob_classical",
-)
-
 demo_present = _demo_path().exists()
 demo = _load_demo(str(_demo_path())) if demo_present else pd.DataFrame()
 n_demo = len(demo)
@@ -455,12 +448,19 @@ with tab1:
 
 
 with tab2:
-    classical_label = _CLASSICAL_LABELS[classical_choice]
-    st.subheader(f"Classical baseline — {classical_label}")
-    if classical_choice == "VWM":
+    st.subheader("Classical baselines")
+    st.markdown(
+        "Two closed-form classifiers on the same FI-2010 windows. **LDA** "
+        "uses all 4000 flattened lookback features and solves Fisher's "
+        "(1936) linear discriminant. **Gatheral & Oomen (2010) "
+        "volume-weighted mid** uses *only the Level-1 depth imbalance at "
+        "the last tick* — a one-feature depth-imbalance heuristic, the "
+        "floor every deep model should beat."
+    )
+
+    with st.expander("Volume-Weighted Mid — formula", expanded=False):
         st.markdown(
-            "**Gatheral & Oomen (2010) volume-weighted mid-price.** The "
-            "bid price is weighted by the *ask* volume and vice versa — "
+            "The bid price is weighted by the *ask* volume and vice versa — "
             "the side with thicker depth pulls fair value toward the "
             "opposite quote:"
         )
@@ -484,13 +484,10 @@ with tab2:
                  r"\begin{cases} 0\;(\text{down}) & I < \tau_{\text{down}} \\ "
                  r"2\;(\text{up}) & I > \tau_{\text{up}} \\ "
                  r"1\;(\text{stat}) & \text{otherwise} \end{cases}")
-        st.markdown(
-            "No SVD, no SGD — just a depth-imbalance heuristic, the floor "
-            "every deep model should beat."
-        )
+
     if not demo_present:
         st.info(
-            "The classical baseline runs on the demo slice. "
+            "The classical baselines run on the demo slice. "
             "Produce `data/lob_fi2010_demo.parquet` first."
         )
     elif n_demo < _LOOKBACK + 1:
@@ -500,70 +497,53 @@ with tab2:
         )
     else:
         cap = min(_IN_PAGE_TICK_CAP, n_demo)
-        if classical_choice == "LDA":
-            preds, yte = _fit_lda_cached(str(_demo_path()), f"label_k{horizon_k}", cap)
-        else:
-            preds, yte = _fit_gatheral_oomen_cached(
-                str(_demo_path()), f"label_k{horizon_k}", cap,
-            )
-        if preds is None:
-            st.warning(f"{classical_label} fit failed on this slice — see logs.")
-        elif len(yte):
-            from sklearn.metrics import (
-                accuracy_score, f1_score,
-                precision_score, recall_score,
-            )
-            acc = accuracy_score(yte, preds)
-            f1 = f1_score(yte, preds, average="macro", zero_division=0)
-            prec = precision_score(yte, preds, average="macro", zero_division=0)
-            rec = recall_score(yte, preds, average="macro", zero_division=0)
+        label_col = f"label_k{horizon_k}"
+        lda_preds, lda_yte = _fit_lda_cached(str(_demo_path()), label_col, cap)
+        vwm_preds, vwm_yte = _fit_gatheral_oomen_cached(
+            str(_demo_path()), label_col, cap,
+        )
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Accuracy", f"{acc * 100:.1f}%")
-            c2.metric("Precision (macro)", f"{prec * 100:.1f}%")
-            c3.metric("Recall (macro)", f"{rec * 100:.1f}%")
-            c4.metric("F1 (macro)", f"{f1 * 100:.1f}%")
+        from sklearn.metrics import (
+            accuracy_score, f1_score,
+            precision_score, recall_score,
+        )
 
-            # Predicted vs realized labels over the test portion
-            st.markdown("**Predicted vs. realized class labels**")
-            st.markdown(
-                "Each x value is one test window (left = earliest, right = "
-                "latest). The y-axis takes only three values — `0 = down`, "
-                "`1 = stat`, `2 = up` — so all dots stack on three "
-                "horizontal stripes:\n\n"
-                f"- **Blue circles**: the *realized* label (ground truth at "
-                f"horizon k={horizon_k}).\n"
-                f"- **Orange ×**: what {classical_label} *predicted*.\n\n"
-                "Whenever an orange × sits on top of a blue circle, the "
-                "classifier got that window right; rows where the orange "
-                "stripe is dense but the blue is sparse (or vice versa) "
-                "reveal class biases — e.g. a baseline that hugs `y=1` is "
-                "just predicting *stationary* for everything."
-            )
-            x_axis = np.arange(len(yte))
-            sample = min(1500, len(yte))
-            sub = np.linspace(0, len(yte) - 1, sample, dtype=int)
-            fig_pred = go.Figure()
-            fig_pred.add_trace(go.Scatter(
-                x=x_axis[sub], y=yte[sub], mode="markers",
-                name="Realized", marker={"color": "#1f77b4", "size": 4},
-            ))
-            fig_pred.add_trace(go.Scatter(
-                x=x_axis[sub], y=preds[sub], mode="markers",
-                name=classical_label,
-                marker={"color": "#ff7f0e", "size": 4, "symbol": "x"},
-            ))
-            fig_pred.update_layout(height=320, yaxis_title="Class (0=down, 1=stat, 2=up)",
-                                     xaxis_title="Test window index")
-            st.plotly_chart(fig_pred, width="stretch")
+        rows = []
+        for label, preds, yte in (
+            (_CLASSICAL_LABELS["LDA"], lda_preds, lda_yte),
+            (_CLASSICAL_LABELS["VWM"], vwm_preds, vwm_yte),
+        ):
+            if preds is None or yte is None or not len(yte):
+                rows.append({
+                    "Baseline": label,
+                    "Accuracy": "—", "Precision (macro)": "—",
+                    "Recall (macro)": "—", "F1 (macro)": "—",
+                })
+                continue
+            rows.append({
+                "Baseline": label,
+                "Accuracy": f"{accuracy_score(yte, preds) * 100:.1f}%",
+                "Precision (macro)":
+                    f"{precision_score(yte, preds, average='macro', zero_division=0) * 100:.1f}%",
+                "Recall (macro)":
+                    f"{recall_score(yte, preds, average='macro', zero_division=0) * 100:.1f}%",
+                "F1 (macro)":
+                    f"{f1_score(yte, preds, average='macro', zero_division=0) * 100:.1f}%",
+            })
 
-            st.caption(
-                f"In-page {classical_label} fit on the first {cap} ticks of "
-                f"the demo slice (70/30 train/test split) and evaluated on "
-                f"{len(yte)} test windows. Tab 4A reports the Table II "
-                f"numbers computed via `scripts/run_backtests.py --lob` on "
-                f"the full FI-2010 split."
-            )
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+        n_eval = max(
+            len(lda_yte) if lda_yte is not None else 0,
+            len(vwm_yte) if vwm_yte is not None else 0,
+        )
+        st.caption(
+            f"In-page fit on the first {cap} ticks of the demo slice "
+            f"(70/30 train/test split) — both baselines evaluated on the "
+            f"same {n_eval} test windows at horizon k={horizon_k}. Tab 4A "
+            f"reports the Table II numbers computed via "
+            f"`scripts/run_backtests.py --lob` on the full FI-2010 split."
+        )
 
 
 with tab3:
