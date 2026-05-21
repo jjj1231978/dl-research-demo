@@ -28,7 +28,10 @@ from src.models.deeplob import (
     LOBLSTM,
     LOBSimpleMLP,
 )
-from src.strategies.lob_classical import fit_lda, predict_lda
+from src.strategies.lob_classical import (
+    fit_gatheral_oomen_threshold, fit_lda,
+    gatheral_oomen_predict, predict_lda,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PRETRAINED_DIR = _REPO_ROOT / "data" / "pretrained"
@@ -193,6 +196,34 @@ def _fit_lda_cached(demo_path_str: str, label_col: str, cap: int):
     return preds, yte
 
 
+@st.cache_data(show_spinner=False)
+def _fit_gatheral_oomen_cached(demo_path_str: str, label_col: str, cap: int):
+    """Calibrate the L1-imbalance baseline on the first 70% of the demo slice.
+
+    Returns ``(preds, yte)`` on the held-out 30%. The fit is closed-form
+    (just two quantiles on training-set imbalance) so it's effectively
+    instantaneous — caching only avoids redundant work across reruns.
+    """
+    X, y = _build_windows_capped(demo_path_str, label_col, cap)
+    if len(X) < 20:
+        return None, None
+    n_split = int(0.7 * len(X))
+    Xtr, Xte = X[:n_split], X[n_split:]
+    ytr, yte = y[:n_split], y[n_split:]
+    try:
+        thresholds = fit_gatheral_oomen_threshold(Xtr, ytr)
+        preds = gatheral_oomen_predict(Xte, thresholds)
+    except Exception:  # noqa: BLE001
+        return None, None
+    return preds, yte
+
+
+_CLASSICAL_LABELS = {
+    "LDA": "LDA",
+    "VWM": "Volume-Weighted Mid (Gatheral-Oomen)",
+}
+
+
 @st.cache_resource(show_spinner=False)
 def _load_deeplob_cached(ckpt_path_str: str):
     """Load the DeepLOB checkpoint once per session."""
@@ -248,7 +279,8 @@ horizon_k = st.sidebar.selectbox(
 
 classical_choice = st.sidebar.selectbox(
     "Classical baseline",
-    options=["LDA"],
+    options=list(_CLASSICAL_LABELS),
+    format_func=lambda k: _CLASSICAL_LABELS[k],
     key="lob_classical",
 )
 
@@ -423,7 +455,21 @@ with tab1:
 
 
 with tab2:
-    st.subheader(f"Classical baseline — {classical_choice}")
+    classical_label = _CLASSICAL_LABELS[classical_choice]
+    st.subheader(f"Classical baseline — {classical_label}")
+    if classical_choice == "VWM":
+        st.markdown(
+            "**Gatheral & Oomen (2010) volume-weighted mid-price.** "
+            "`P_VW = (V_b·P_a + V_a·P_b)/(V_b+V_a)` at level 1 — bid price "
+            "weighted by *ask* volume and vice versa. The microprice "
+            "deviation `P_VW − P_mid` has the same sign as the L1 depth "
+            "imbalance `I = (V_b − V_a)/(V_b + V_a)`, so we use **I at the "
+            "last tick** of each lookback window as the directional signal. "
+            "Two thresholds `(τ_down, τ_up)` are calibrated on the training "
+            "labels by quantile-matching, then `I < τ_down ⇒ down`, "
+            "`I > τ_up ⇒ up`, else `stat`. No SVD, no SGD — just a "
+            "depth-imbalance heuristic, the floor every deep model should beat."
+        )
     if not demo_present:
         st.info(
             "The classical baseline runs on the demo slice. "
@@ -436,9 +482,14 @@ with tab2:
         )
     else:
         cap = min(_IN_PAGE_TICK_CAP, n_demo)
-        preds, yte = _fit_lda_cached(str(_demo_path()), f"label_k{horizon_k}", cap)
+        if classical_choice == "LDA":
+            preds, yte = _fit_lda_cached(str(_demo_path()), f"label_k{horizon_k}", cap)
+        else:
+            preds, yte = _fit_gatheral_oomen_cached(
+                str(_demo_path()), f"label_k{horizon_k}", cap,
+            )
         if preds is None:
-            st.warning("LDA fit failed on this slice — see logs.")
+            st.warning(f"{classical_label} fit failed on this slice — see logs.")
         elif len(yte):
             from sklearn.metrics import (
                 accuracy_score, f1_score,
@@ -466,7 +517,7 @@ with tab2:
             ))
             fig_pred.add_trace(go.Scatter(
                 x=x_axis[sub], y=preds[sub], mode="markers",
-                name=f"{classical_choice}",
+                name=classical_label,
                 marker={"color": "#ff7f0e", "size": 4, "symbol": "x"},
             ))
             fig_pred.update_layout(height=320, yaxis_title="Class (0=down, 1=stat, 2=up)",
@@ -474,10 +525,11 @@ with tab2:
             st.plotly_chart(fig_pred, width="stretch")
 
             st.caption(
-                f"In-page LDA fit on the first {cap} ticks of the demo slice "
-                f"(70/30 train/test split) and evaluated on {len(yte)} test "
-                f"windows. Tab 4A reports the Table II numbers computed via "
-                f"`scripts/run_backtests.py --lob` on the full FI-2010 split."
+                f"In-page {classical_label} fit on the first {cap} ticks of "
+                f"the demo slice (70/30 train/test split) and evaluated on "
+                f"{len(yte)} test windows. Tab 4A reports the Table II "
+                f"numbers computed via `scripts/run_backtests.py --lob` on "
+                f"the full FI-2010 split."
             )
 
 
