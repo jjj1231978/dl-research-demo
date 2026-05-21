@@ -329,7 +329,7 @@ if not demo_present:
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["1. Problem & Data", "2. Classical Baselines",
-     "3. DeepLOB", "4. Table II Replication"]
+     "3. DeepLOB", "4. Key Results"]
 )
 
 
@@ -787,7 +787,12 @@ digraph TrainFlow {
 
 
 with tab4:
-    st.subheader("Table II replication — FI-2010 Setup 2, k=10")
+    st.subheader("Key Results — replicating Zhang, Zohren, Roberts 2019")
+    st.caption(
+        "Paper Table II (Setup 2, k=10) reproduced on FI-2010, plus two "
+        "extensions of it. Train/test split from the paper; substrate "
+        "caveats from Tab 1 apply."
+    )
     if panel.empty:
         st.info(
             "Run `python scripts/run_backtests.py --lob` to seed "
@@ -796,11 +801,31 @@ with tab4:
             "checkpoints)."
         )
     else:
-        sub4a, sub4b, sub4c = st.tabs(
-            ["4A. Table II", "4B. Confusion Matrices", "4C. Per-class F1"]
-        )
+        sub4a, sub4b, sub4c = st.tabs([
+            "Performance Across Architectures (paper Table II)",
+            "Confusion Matrices — Top 3 by F1 (extends paper Table II)",
+            "Per-class F1 Breakdown (extends paper Table II)",
+        ])
 
         with sub4a:
+            st.markdown(
+                "**What Table II is in the paper.** The headline comparison "
+                "of Zhang, Zohren, Roberts (2019): one row per architecture "
+                "(SVM, BoF, MCSDA, B(TABL), C(TABL), DeepLOB, plus MLP / "
+                "CNN-I / CNN-II / LSTM baselines), four columns — Accuracy, "
+                "macro-Precision, macro-Recall, macro-F1 — on the FI-2010 "
+                "test set, **Setup 2** (train days 1–7, test days 8–10), at "
+                "**horizon k=10**. The argument it makes: DeepLOB and the "
+                "TABL family dominate the older SVM / BoF / MCSDA "
+                "baselines, validating that *spatial-temporal* "
+                "architectures (CNN over book depth, then LSTM over time) "
+                "are the right inductive bias for tick-scale LOB data.\n\n"
+                "**Replication target: Table II.** Rows tagged "
+                "`reproduced here` come from this repo's Modal-trained "
+                "checkpoints; `paper-reported` rows are taken verbatim "
+                "from Zhang et al. 2019 Table II."
+            )
+            st.divider()
             view = panel.copy()
             view["Method"] = view["method"].apply(
                 lambda m: _ARCH_LABEL.get(m, m.upper())
@@ -824,6 +849,22 @@ with tab4:
             )
 
         with sub4b:
+            st.markdown(
+                "**Why this is not in the paper.** Zhang et al. report "
+                "scalar metrics in Table II but do not break down where "
+                "each model's errors land. Confusion matrices show that "
+                "directly: rows are the realized class (down / stationary "
+                "/ up), columns are the predicted class, cells are window "
+                "counts. The diagonal is correct predictions; off-diagonal "
+                "is where mass leaks. On FI-2010 the **stationary** class "
+                "is ~70% of the test set, so even strong models tend to "
+                "absorb uncertain ticks into the middle column — useful "
+                "to see explicitly.\n\n"
+                "**Replication target: extends paper Table II** with the "
+                "per-class error structure that Table II's scalar F1 "
+                "summarises."
+            )
+            st.divider()
             reproduced = panel[panel["source"] == "reproduced_here"].copy()
             if reproduced.empty:
                 st.info(
@@ -853,6 +894,20 @@ with tab4:
                         st.plotly_chart(fig_cm, width="stretch")
 
         with sub4c:
+            st.markdown(
+                "**Why this is not in the paper.** Table II reports "
+                "macro-averaged F1 — a single number per architecture. "
+                "Breaking macro-F1 into its three per-class components "
+                "reveals whether a model is uniformly capable across "
+                "{down, stat, up} or skewed toward the dominant "
+                "*stationary* class. A model with high macro-F1 but very "
+                "low F1 on `down` and `up` would, in practice, be useless "
+                "for trading despite looking strong in the headline "
+                "metric.\n\n"
+                "**Replication target: extends paper Table II** by "
+                "decomposing its macro-F1 column into per-class F1 bars."
+            )
+            st.divider()
             reproduced = panel[panel["source"] == "reproduced_here"].copy()
             if reproduced.empty:
                 st.info("No per-class F1 rows yet (no .pt checkpoints).")
