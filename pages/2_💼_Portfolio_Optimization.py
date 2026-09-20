@@ -252,13 +252,15 @@ with tab1:
         close_wide = close_wide.ffill().dropna(how="all")
         rets_wide = close_wide.pct_change(1)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Assets", len(close_wide.columns))
-        c2.metric("Date range",
-                   f"{close_wide.index.min().date()} → {close_wide.index.max().date()}")
         corr_mat = rets_wide.corr().values
         avg_corr = float(np.nanmean(corr_mat[np.triu_indices_from(corr_mat, k=1)]))
-        c3.metric("Avg pairwise corr", f"{avg_corr:.3f}")
+        stat_row([
+            ("Assets", f"{len(close_wide.columns)}"),
+            ("Date range",
+             f"{close_wide.index.min().date()} to {close_wide.index.max().date()}",
+             f"{len(close_wide):,} trading days"),
+            ("Avg pairwise corr", f"{avg_corr:.3f}"),
+        ])
 
         st.markdown("**Pairwise correlation of daily returns**")
         plot(correlation_heatmap(rets_wide.corr()))

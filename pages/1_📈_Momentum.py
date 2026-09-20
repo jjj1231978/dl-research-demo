@@ -271,10 +271,12 @@ with tab1:
         corr = ret_panel.corr().values
         avg_corr = float(np.nanmean(corr[np.triu_indices_from(corr, k=1)]))
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Contracts", n_contracts)
-        c2.metric("Date range", f"{d_min} → {d_max}")
-        c3.metric("Avg inter-contract correlation", f"{avg_corr:.3f}")
+        n_days = wide.shape[0]
+        stat_row([
+            ("Contracts", f"{n_contracts}"),
+            ("Date range", f"{d_min} to {d_max}", f"{n_days:,} trading days"),
+            ("Avg inter-contract corr", f"{avg_corr:.3f}"),
+        ])
 
         # Coverage Gantt
         cov_rows = []

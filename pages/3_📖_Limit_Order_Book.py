@@ -373,10 +373,11 @@ with tab1:
     )
 
     if demo_present:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Demo ticks", f"{n_demo:,}")
-        c2.metric("Day", int(demo["day"].iloc[0]))
-        c3.metric("Stock", "1 (KESBV)")
+        stat_row([
+            ("Demo ticks", f"{n_demo:,}"),
+            ("Day", f"{int(demo['day'].iloc[0])}"),
+            ("Stock", "KESBV", "1 of the 5 Nordic names"),
+        ])
 
         feats_now = demo.iloc[tick_idx][_FEATURE_COLS].to_numpy(dtype=np.float64)
         ask_p = feats_now[_ASK_PRICE_IDX]
@@ -669,10 +670,10 @@ digraph DeepLOB {
                 preds = probs.argmax(axis=1)
 
                 running_acc = float((preds == y_demo).mean())
-                st.metric(
-                    f"Running accuracy on first {cap_3b}-tick window",
-                    f"{running_acc * 100:.1f}%",
-                )
+                stat_row([
+                    ("Running accuracy", f"{running_acc * 100:.1f}%",
+                     f"first {cap_3b:,} ticks of the demo slice"),
+                ])
 
                 end = min(tick_idx + 1, len(probs) - 1)
                 start = max(0, end - 600)
