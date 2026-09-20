@@ -117,6 +117,21 @@ The Space builds from the `Dockerfile` (`sdk: docker`, `app_port: 7860`). Pushin
 runtime dependency set and is pinned; `requirements-train.txt` is GPU-only and is not
 installed in the Space image.
 
+Deploy with:
+
+```bash
+scripts/deploy_hf.sh "Deploy: what changed"
+```
+
+The Space's history is deliberately squashed and separate from this repo's. Hugging
+Face rejects raw binaries anywhere in a pushed commit range, and one commit here
+added `docs/hero.png` before `*.png` was tracked in LFS, so replaying full history is
+refused. The script pushes a single commit carrying `main`'s tree instead.
+
+Pin dependencies against **Python 3.11**, not whatever interpreter is to hand — the
+image is `python:3.11-slim`, and a pin resolved on 3.12 will fail the build (numpy
+2.5 dropped 3.11). `requirements.txt` carries the check command.
+
 ## How this was built
 
 This repo was developed spec-first. The design documents are kept in the repo because
