@@ -86,6 +86,10 @@ st.set_page_config(
 )
 
 from src.ui.theme import (
+    ACCENT,
+    MUTED,
+    RULE,
+    SEQUENTIAL,
     apply_page_chrome,
     page_footer,
     page_header,
@@ -94,6 +98,16 @@ from src.ui.theme import (
 )
 
 apply_page_chrome()
+
+# The page used saturated red/green throughout. Roughly 8% of male readers
+# have a red-green deficiency, and the hue pair carries no information the
+# legend does not. Blue/amber is separable under every common deficiency and
+# in greyscale, because the two tones differ in lightness as well as hue.
+_DOWN = "#A65A34"        # warm
+_STATIONARY = "#9AA4B1"  # slate, the easy majority class
+_UP = "#2C5F8A"          # cool
+_CLASS_COLOURS = {"down": _DOWN, "stationary": _STATIONARY, "up": _UP}
+_SIDE_COLOURS = {"ask": _DOWN, "bid": _UP}
 
 
 def _backtests_dir() -> Path:
@@ -379,12 +393,12 @@ with tab1:
                     "(features are z-score normalized per FI-2010)")
         fig_snap = px.bar(
             snap, x="level", y="volume_z", color="side", barmode="group",
-            color_discrete_map={"ask": "#d62728", "bid": "#2ca02c"},
-            height=300,
+            color_discrete_map=_SIDE_COLOURS,
         )
         fig_snap.update_layout(yaxis_title="Volume (z-scored)",
-                                xaxis_title="Depth level")
-        st.plotly_chart(fig_snap, width="stretch")
+                                xaxis_title="Depth level",
+                                hovermode="closest")
+        plot(fig_snap, height=300)
 
         # Class-balance per horizon
         st.markdown("**Class balance across horizons (demo slice)**")
@@ -404,12 +418,12 @@ with tab1:
             bal = pd.DataFrame(bal_rows)
             fig_bal = px.bar(
                 bal, x="k", y="count", color="class", barmode="stack",
-                color_discrete_map={"down": "#d62728", "stationary": "#bbbbbb",
-                                       "up": "#2ca02c"},
-                height=280,
+                color_discrete_map=_CLASS_COLOURS,
             )
-            fig_bal.update_layout(xaxis_title="Prediction horizon k (ticks)")
-            st.plotly_chart(fig_bal, width="stretch")
+            fig_bal.update_layout(xaxis_title="Prediction horizon k (ticks)",
+                                  yaxis_title="Windows",
+                                  hovermode="closest")
+            plot(fig_bal, height=280)
 
         # Smoothed-label visualization: mid-price proxy with up/down shading
         st.markdown(
@@ -424,11 +438,11 @@ with tab1:
         fig_smooth.add_trace(go.Scatter(
             x=idx, y=mid[idx], mode="lines",
             name="Mid-price proxy (z-scored)",
-            line={"color": "#1f77b4"},
+            line={"color": MUTED, "width": 1},
         ))
         for cls, color in (
-            (0, "rgba(214,39,40,0.20)"),
-            (2, "rgba(44,160,44,0.20)"),
+            (0, "rgba(166,90,52,0.45)"),
+            (2, "rgba(44,95,138,0.45)"),
         ):
             mask = lab[idx] == cls
             fig_smooth.add_trace(go.Scatter(
@@ -436,9 +450,10 @@ with tab1:
                 name=f"label = {_CLASS_NAMES[cls]}",
                 marker={"color": color, "size": 4},
             ))
-        fig_smooth.update_layout(height=340, xaxis_title="Tick (demo slice)",
-                                   yaxis_title="Mid-price proxy")
-        st.plotly_chart(fig_smooth, width="stretch")
+        fig_smooth.update_layout(xaxis_title="Tick (demo slice)",
+                                   yaxis_title="Mid-price proxy",
+                                   hovermode="closest")
+        plot(fig_smooth, height=340)
     else:
         st.info("LOB snapshot, class-balance, and smoothed-label visualizations require the demo slice.")
 
@@ -577,32 +592,32 @@ digraph DeepLOB {
     rankdir=TB
     bgcolor="transparent"
     node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.15,0.08"]
-    edge [arrowsize=0.7, color="#666"]
+    edge [arrowsize=0.7, color="#5B6472"]
 
-    input  [label="Input LOB tensor\n(B, 1, T=100, 40)\nrows = ticks, cols = 10 levels × (price, vol) × {bid, ask}", fillcolor="#E8F4FD"]
+    input  [label="Input LOB tensor\n(B, 1, T=100, 40)\nrows = ticks, cols = 10 levels × (price, vol) × {bid, ask}", fillcolor="#E7EEF5"]
 
-    conv1  [label="Conv Block 1   —   pair (price, volume)\nConv2d(1 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 20)", fillcolor="#FFF4E0"]
-    conv2  [label="Conv Block 2   —   merge bid/ask sides\nConv2d(16 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 10)", fillcolor="#FFF4E0"]
-    conv3  [label="Conv Block 3   —   collapse depth axis\nConv2d(16 → 16, k=(1,10))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 1)", fillcolor="#FFF4E0"]
+    conv1  [label="Conv Block 1   —   pair (price, volume)\nConv2d(1 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 20)", fillcolor="#FAEFE4"]
+    conv2  [label="Conv Block 2   —   merge bid/ask sides\nConv2d(16 → 16, k=(1,2), s=(1,2))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 10)", fillcolor="#FAEFE4"]
+    conv3  [label="Conv Block 3   —   collapse depth axis\nConv2d(16 → 16, k=(1,10))\nConv2d(16 → 16, k=(4,1))  × 2\n→ (B, 16, T, 1)", fillcolor="#FAEFE4"]
 
     subgraph cluster_inception {
         label="Inception module (parallel multi-scale filters)"
         labelloc="t"
         fontsize=10
-        fontcolor="#444"
+        fontcolor="#5B6472"
         style="rounded,dashed"
-        color="#999"
+        color="#E2E6EB"
         margin=12
 
-        inc1 [label="1×1 Conv → 3×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
-        inc2 [label="1×1 Conv → 5×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
-        inc3 [label="MaxPool 3×1 → 1×1 Conv\n(B, 32, T, 1)", fillcolor="#E8FBE5"]
+        inc1 [label="1×1 Conv → 3×1 Conv\n(B, 32, T, 1)", fillcolor="#E6F0ED"]
+        inc2 [label="1×1 Conv → 5×1 Conv\n(B, 32, T, 1)", fillcolor="#E6F0ED"]
+        inc3 [label="MaxPool 3×1 → 1×1 Conv\n(B, 32, T, 1)", fillcolor="#E6F0ED"]
     }
 
-    concat [label="Concat along channels\n(B, 96, T, 1)", fillcolor="#FFF0F0"]
-    lstm   [label="LSTM(input=96 → hidden=64, batch_first=True)\ntake last time-step → (B, 64)", fillcolor="#F0E8FB"]
-    fc     [label="Linear(64 → 3) + Softmax\n→ (B, 3)", fillcolor="#FBE8E8"]
-    output [label="P(down),  P(stat),  P(up)", fillcolor="#E8F4FD"]
+    concat [label="Concat along channels\n(B, 96, T, 1)", fillcolor="#EFF1F4"]
+    lstm   [label="LSTM(input=96 → hidden=64, batch_first=True)\ntake last time-step → (B, 64)", fillcolor="#F1EDF4"]
+    fc     [label="Linear(64 → 3) + Softmax\n→ (B, 3)", fillcolor="#F5EAEA"]
+    output [label="P(down),  P(stat),  P(up)", fillcolor="#E7EEF5"]
 
     input -> conv1 -> conv2 -> conv3
     conv3 -> inc1
@@ -664,7 +679,7 @@ digraph DeepLOB {
                 idx = np.arange(start, end)
                 fig_live = go.Figure()
                 for cls, color in (
-                    (0, "#d62728"), (1, "#888888"), (2, "#2ca02c"),
+                    (0, _DOWN), (1, _STATIONARY), (2, _UP),
                 ):
                     fig_live.add_trace(go.Scatter(
                         x=idx, y=probs[idx, cls], mode="lines",
@@ -674,16 +689,19 @@ digraph DeepLOB {
                 fig_live.add_trace(go.Scatter(
                     x=idx, y=y_demo[idx], mode="markers",
                     name="Realized class", yaxis="y2",
-                    marker={"size": 3, "color": "#000000"},
+                    marker={"size": 3, "color": RULE,
+                              "line": {"width": 0.5, "color": MUTED}},
                 ))
                 fig_live.update_layout(
-                    height=360,
                     yaxis={"title": "Probability", "range": [0, 1]},
                     yaxis2={"title": "Realized class", "overlaying": "y",
-                              "side": "right", "range": [-0.5, 2.5]},
+                              "side": "right", "range": [-0.5, 2.5],
+                              "showgrid": False},
                     xaxis_title="Window index (recent 600 around slider)",
                 )
-                st.plotly_chart(fig_live, width="stretch")
+                # Zooming into the microstructure is the point of this one,
+                # so it keeps a trimmed modebar.
+                plot(fig_live, interactive=True, height=360)
             except Exception as exc:  # noqa: BLE001
                 st.warning(f"Live prediction failed: {exc}")
         else:
@@ -705,13 +723,13 @@ digraph TrainFlow {
     rankdir=LR
     bgcolor="transparent"
     node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, margin="0.12,0.06"]
-    edge [arrowsize=0.6, color="#666"]
+    edge [arrowsize=0.6, color="#5B6472"]
 
-    s1 [label="1. Fetch\nFI-2010 from Kaggle\n→ parquet", fillcolor="#E8F4FD"]
-    s2 [label="2. Train on Modal T4\nDeepLOB / MLP / CNN1\nCNN2 / LSTM", fillcolor="#FFF4E0"]
-    s3 [label="3. Pull artifacts\n.pt + .json sidecar\n→ data/pretrained/", fillcolor="#E8FBE5"]
-    s4 [label="4. Refresh panel\nrun_backtests.py --lob\n→ Tab 4 picks it up", fillcolor="#FFF0F0"]
-    s5 [label="5. Reload the app\nsee new row in Tab 4A", fillcolor="#F0E8FB"]
+    s1 [label="1. Fetch\nFI-2010 from Kaggle\n→ parquet", fillcolor="#E7EEF5"]
+    s2 [label="2. Train on Modal T4\nDeepLOB / MLP / CNN1\nCNN2 / LSTM", fillcolor="#FAEFE4"]
+    s3 [label="3. Pull artifacts\n.pt + .json sidecar\n→ data/pretrained/", fillcolor="#E6F0ED"]
+    s4 [label="4. Refresh panel\nrun_backtests.py --lob\n→ Tab 4 picks it up", fillcolor="#EFF1F4"]
+    s5 [label="5. Reload the app\nsee new row in Tab 4A", fillcolor="#F1EDF4"]
 
     s1 -> s2 -> s3 -> s4 -> s5
 }
@@ -920,18 +938,19 @@ with tab4:
                             [row[f"cm_{i}{j}"] for j in range(3)]
                             for i in range(3)
                         ])
+                        st.markdown(
+                            f"**{_ARCH_LABEL.get(row['method'], row['method'])}**"
+                            f" &nbsp; F1 = {row['f1_macro']:.2f}"
+                        )
                         fig_cm = px.imshow(
                             cm, text_auto=True, aspect="auto",
                             x=list(_CLASS_NAMES), y=list(_CLASS_NAMES),
-                            color_continuous_scale="Blues",
+                            color_continuous_scale=[list(c) for c in SEQUENTIAL],
                             labels={"x": "predicted", "y": "actual"},
                         )
-                        fig_cm.update_layout(
-                            title=f"{_ARCH_LABEL.get(row['method'], row['method'])}"
-                                    f" (F1={row['f1_macro']:.2f})",
-                            height=320,
-                        )
-                        st.plotly_chart(fig_cm, width="stretch")
+                        fig_cm.update_layout(hovermode="closest",
+                                             coloraxis_showscale=False)
+                        plot(fig_cm, height=320, key=f"lob_cm_{row['method']}")
                 st.markdown(
                     "**What to look for.** Read each matrix row-wise — "
                     "*given* the true class, where do predictions land? "
@@ -993,26 +1012,26 @@ with tab4:
                 f1_df = pd.DataFrame(rows)
                 fig_perc = px.bar(
                     f1_df, x="Method", y="F1", color="Class", barmode="group",
-                    color_discrete_map={"down": "#d62728", "stationary": "#888888",
-                                          "up": "#2ca02c"},
-                    height=360,
+                    color_discrete_map=_CLASS_COLOURS,
                 )
-                fig_perc.update_layout(yaxis_title="Per-class F1 (×100)")
-                st.plotly_chart(fig_perc, width="stretch")
+                fig_perc.update_layout(yaxis_title="Per-class F1 (×100)",
+                                       xaxis_title="",
+                                       hovermode="closest")
+                plot(fig_perc, height=360)
                 st.markdown(
-                    "**What to look for.** The **grey** (`stationary`) "
+                    "**What to look for.** The **slate** (`stationary`) "
                     "bars dominate every architecture — every model is "
                     "competent at the easy class. The interesting "
-                    "comparison is the **red** (`down`) and **green** "
+                    "comparison is the **amber** (`down`) and **blue** "
                     "(`up`) bars, which capture how well a model picks "
                     "up *directional* moves at horizon k=10.\n\n"
-                    "- **Symmetry check**: red ≈ green within each "
+                    "- **Symmetry check**: amber ≈ blue within each "
                     "method is what you want — the two directional "
                     "classes are roughly balanced (~15% each of the "
-                    "test set), so an asymmetric red/green gap would "
+                    "test set), so an asymmetric down/up gap would "
                     "flag a directional bias that macro-F1 hides.\n"
                     "- **Architectural pattern**: the *spread* between "
-                    "the grey bar and the down/up bars shrinks as the "
+                    "the stationary bar and the down/up bars shrinks as the "
                     "architecture gets better — DeepLOB and CNN-II are "
                     "the only models where the directional bars get "
                     "anywhere close to the stationary bar. MLP "

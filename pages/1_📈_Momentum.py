@@ -39,14 +39,36 @@ st.set_page_config(
 )
 
 from src.ui.theme import (
+    ACCENT,
+    SEMANTIC,
     apply_page_chrome,
     page_footer,
     page_header,
     plot,
+    series_by_role,
     stat_row,
 )
 
 apply_page_chrome()
+
+# One colour per idea, carried across every chart on the page: the two deep
+# models are the paper's subject, the three classical signals are what they
+# are measured against.
+_STRATEGY_ROLES = {
+    "Long Only": "baseline",
+    "Sgn(Returns)": "classical",
+    "MACD": "benchmark",
+    "MLP-Sharpe": "deep",
+    "LSTM-Sharpe": "deep_alt",
+}
+_SIGNAL_ROLES = {
+    "Long Only": "baseline",
+    "Sgn(Returns)": "classical",
+    "MACD": "benchmark",
+}
+_STRATEGY_COLOURS = {
+    label: SEMANTIC[role] for label, role in _STRATEGY_ROLES.items()
+}
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -262,10 +284,12 @@ with tab1:
                 {"Contract": c, "Start": sub["date"].min(), "End": sub["date"].max()}
             )
         cov_df = pd.DataFrame(cov_rows)
-        fig = px.timeline(cov_df, x_start="Start", x_end="End", y="Contract",
-                          title="Coverage timeline (per BCOM root)")
-        fig.update_yaxes(autorange="reversed")
-        st.plotly_chart(fig, width="stretch")
+        st.markdown("**Coverage timeline (per BCOM root)**")
+        fig = px.timeline(cov_df, x_start="Start", x_end="End", y="Contract")
+        fig.update_yaxes(autorange="reversed", tickfont={"size": 12})
+        fig.update_traces(marker_color=ACCENT)
+        fig.update_layout(hovermode="closest", height=30 * len(cov_df) + 90)
+        plot(fig)
 
         if asset_set == "Single asset" and single_asset in wide.columns:
             sub = wide[single_asset].dropna()
@@ -277,8 +301,8 @@ with tab1:
                 st.markdown(f"**{single_asset} — daily return distribution**")
                 rets = sub.pct_change().dropna()
                 hist = go.Figure(data=[go.Histogram(x=rets, nbinsx=80)])
-                hist.update_layout(showlegend=False, height=320)
-                st.plotly_chart(hist, width="stretch")
+                hist.update_layout(showlegend=False, hovermode="closest")
+                plot(hist, height=320)
 
     st.divider()
     st.markdown(
@@ -354,10 +378,9 @@ with tab2:
             equity = (1 + daily).cumprod()
             cum.add_trace(go.Scatter(x=equity.index, y=equity.values,
                                       mode="lines", name=label))
-        cum.update_layout(yaxis_type="log", height=420,
-                          title=("Cumulative return (log) — "
-                                  + ("σ_target=15%" if vol_scaling else "raw")))
-        st.plotly_chart(cum, width="stretch")
+        series_by_role(cum, _SIGNAL_ROLES)
+        cum.update_layout(yaxis_type="log")
+        plot(cum, height=420)
 
         # Mini-table
         rows = []
@@ -436,8 +459,9 @@ with tab3:
                 equity = (1 + daily).cumprod()
                 eq.add_trace(go.Scatter(x=equity.index, y=equity.values,
                                          mode="lines", name=arch))
-            eq.update_layout(yaxis_type="log", height=360, title="Equity (log)")
-            st.plotly_chart(eq, width="stretch")
+            series_by_role(eq, {"MLP": "deep", "LSTM": "deep_alt"})
+            eq.update_layout(yaxis_type="log")
+            plot(eq, height=360)
         with colR:
             st.markdown("**Position over time** (one contract)")
             # Reuse the sidebar's single_asset if set; else pick the most-traded
@@ -452,10 +476,10 @@ with tab3:
                 & (backtest_panel["contract"] == ct)
             ]
             if not sub.empty:
-                pos_fig = px.line(sub, x="date", y="daily_return",
-                                   title=f"{arch_for_pos} P&L on {ct}")
-                pos_fig.update_layout(height=360)
-                st.plotly_chart(pos_fig, width="stretch")
+                pos_fig = px.line(sub, x="date", y="daily_return")
+                pos_fig.update_traces(line_color=ACCENT, line_width=1.2)
+                pos_fig.update_layout(xaxis_title="", yaxis_title="Daily return")
+                plot(pos_fig, height=360)
             else:
                 st.info(f"No backtest rows for {arch_for_pos} on {ct}.")
     else:
@@ -584,9 +608,9 @@ with tab4:
                 equity = (1 + daily).cumprod()
                 fig4c.add_trace(go.Scatter(x=equity.index, y=equity.values,
                                              mode="lines", name=label))
-            fig4c.update_layout(yaxis_type="log", height=460,
-                                  title="Cumulative return (log scale)")
-            st.plotly_chart(fig4c, width="stretch")
+            series_by_role(fig4c, _STRATEGY_ROLES)
+            fig4c.update_layout(yaxis_type="log")
+            plot(fig4c, height=460)
             st.markdown(
                 "**What to look for**: On a log scale, parallel lines mean "
                 "equal compound returns. Deep-model curves sitting above the "
@@ -626,9 +650,14 @@ with tab4:
                     (c1, c2, c3), ("Sharpe", "Average return", "Volatility")
                 ):
                     fig = px.box(per_asset, x="Strategy", y=metric, points=False,
-                                 title=metric)
-                    fig.update_layout(height=340, showlegend=False)
-                    col.plotly_chart(fig, width="stretch")
+                                 color="Strategy",
+                                 color_discrete_map=_STRATEGY_COLOURS)
+                    fig.update_layout(showlegend=False, hovermode="closest",
+                                      xaxis_title="", yaxis_title=metric)
+                    fig.update_xaxes(tickangle=-35)
+                    with col:
+                        st.markdown(f"**{metric}**")
+                        plot(fig, height=340, key=f"mom_ex5_{metric}")
                 st.markdown(
                     "**What to look for**: Each box is the distribution of a "
                     "single metric across the 18 BCOM contracts under one "

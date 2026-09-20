@@ -69,14 +69,48 @@ st.set_page_config(
 )
 
 from src.ui.theme import (
+    ACCENT,
+    SEMANTIC,
     apply_page_chrome,
+    correlation_heatmap,
     page_footer,
     page_header,
     plot,
+    series_by_role,
     stat_row,
 )
 
 apply_page_chrome()
+
+# One colour per idea across every chart on the page. Deep Portfolio is the
+# paper's model; everything else is what it is measured against.
+_METHOD_ROLES = {
+    "Deep Portfolio": "deep",
+    "Equal Weight": "baseline",
+    "Min Variance": "classical",
+    "Max Diversification": "benchmark",
+    "Diversity Weighted": "classical",
+}
+
+# The four pre-specified static allocations are one idea, not four, and the
+# colorway only has six slots for nine methods — left to cycle, they collide
+# with the deep model's blue. Draw them as one muted family instead.
+_ALLOC_TONES = ("#9AA4B1", "#8A94A3", "#7A8493", "#6E7B8B")
+
+
+def _colour_methods(fig):
+    """Semantic colours for the named methods, one muted family for the
+    fixed allocations, so Deep Portfolio is the only blue in the chart."""
+    series_by_role(fig, _METHOD_ROLES)
+    alloc_seen = 0
+    for trace in fig.data:
+        if str(trace.name).startswith("Alloc "):
+            tone = _ALLOC_TONES[alloc_seen % len(_ALLOC_TONES)]
+            alloc_seen += 1
+            if getattr(trace, "line", None) is not None:
+                trace.line.color = tone
+                trace.line.width = 1.2
+    return fig
 
 
 def _backtests_dir() -> Path:
@@ -227,13 +261,13 @@ with tab1:
         c3.metric("Avg pairwise corr", f"{avg_corr:.3f}")
 
         st.markdown("**Pairwise correlation of daily returns**")
-        heat = rets_wide.corr()
-        fig_corr = px.imshow(
-            heat, color_continuous_scale="RdBu_r", zmin=-1, zmax=1,
-            aspect="auto",
+        plot(correlation_heatmap(rets_wide.corr()))
+        st.caption(
+            "Lower triangle only — a symmetric matrix drawn in full says "
+            "everything twice — with the unit diagonal masked so it cannot "
+            "saturate the colour scale. The negative VIXY loading is what "
+            "lets a long-only book hedge."
         )
-        fig_corr.update_layout(height=400)
-        st.plotly_chart(fig_corr, width="stretch")
 
     st.divider()
     st.markdown(
@@ -325,12 +359,14 @@ with tab2:
                 x=equity.index, y=equity.values, mode="lines",
                 name=_METHOD_LABELS.get(m, m),
             ))
-        cum.update_layout(
-            yaxis_type="log", height=420,
-            title=f"Cumulative return (log) — "
-                  f"{'σ=10%' if vol_scaling else 'raw'}, C={cost_label}",
+        st.markdown(
+            f"**Cumulative return (log) — "
+            f"{'scaled to 10% volatility' if vol_scaling else 'unscaled'}, "
+            f"cost {cost_label}**"
         )
-        st.plotly_chart(cum, width="stretch")
+        _colour_methods(cum)
+        cum.update_layout(yaxis_type="log")
+        plot(cum, height=420)
 
         rows = []
         for m in selected:
@@ -448,15 +484,20 @@ with tab3:
                         mode="lines",
                         name=f"Best classical: {_METHOD_LABELS.get(best_method, best_method)}",
                     ))
-                fig_eq.update_layout(yaxis_type="log", height=400,
-                                       title="Equity (log)")
-                st.plotly_chart(fig_eq, width="stretch")
+                series_by_role(fig_eq, {"Deep Portfolio": "deep"})
+                for _tr in fig_eq.data:
+                    if str(_tr.name).startswith("Best classical"):
+                        _tr.line.color = SEMANTIC["benchmark"]
+                        _tr.line.width = 1.6
+                fig_eq.update_layout(yaxis_type="log")
+                plot(fig_eq, height=400)
             with colR:
                 st.markdown("**Per-day Deep Portfolio P&L**")
-                fig_pnl = px.line(deep_rows, x="date", y="portfolio_return",
-                                    title="Daily portfolio return")
-                fig_pnl.update_layout(height=400)
-                st.plotly_chart(fig_pnl, width="stretch")
+                fig_pnl = px.line(deep_rows, x="date", y="portfolio_return")
+                fig_pnl.update_traces(line_color=ACCENT, line_width=1.2)
+                fig_pnl.update_layout(xaxis_title="",
+                                      yaxis_title="Daily return")
+                plot(fig_pnl, height=400)
 
     with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s", expanded=False):
         st.markdown(
@@ -571,9 +612,9 @@ with tab4:
                             x=eq.index, y=eq.values, mode="lines",
                             name=_METHOD_LABELS.get(m, m),
                         ))
-                    fig.update_layout(yaxis_type="log", height=420,
-                                       showlegend=True)
-                    st.plotly_chart(fig, width="stretch")
+                    _colour_methods(fig)
+                    fig.update_layout(yaxis_type="log", showlegend=True)
+                    plot(fig, height=420, key=f"pf_fig3_{p['label']}")
             st.markdown(
                 "**What to look for.** Left → right, the panels add "
                 "(1) vol-scaling, then (2) higher transaction costs. A "

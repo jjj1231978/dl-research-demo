@@ -47,6 +47,11 @@ CATEGORICAL: tuple[str, ...] = (
 # the same colour on every page and the reader learns it once.
 SEMANTIC: Mapping[str, str] = {
     "deep": "#1F4E79",
+    # A second tone in the deep family, for the pages that show two of the
+    # paper's own models side by side (Momentum runs MLP and LSTM). It is
+    # lighter rather than a different hue, so the pair still reads as one
+    # family and stays separable in greyscale.
+    "deep_alt": "#5389B5",
     "benchmark": "#C77B3C",
     "classical": "#4C8C7A",
     "baseline": "#6E7B8B",
@@ -177,11 +182,23 @@ PLOTLY_CONFIG_INTERACTIVE: dict = {
 }
 
 
-def plot(fig: go.Figure, *, interactive: bool = False, height: int | None = None) -> None:
+def plot(
+    fig: go.Figure,
+    *,
+    interactive: bool = False,
+    height: int | None = None,
+    key: str | None = None,
+) -> None:
     """Render a figure with the house config.
 
     Use this everywhere instead of calling st.plotly_chart directly, so the
     modebar, sizing and template stay consistent.
+
+    Pass ``key`` for any chart drawn inside a loop. Streamlit derives a
+    chart's element id from the serialised figure, so two figures that
+    happen to carry identical data raise StreamlitDuplicateElementId. That
+    used to be masked by each figure carrying its own title; titles now live
+    in the heading above the chart, so the key has to do that work.
     """
     if height is not None:
         fig.update_layout(height=height)
@@ -190,6 +207,7 @@ def plot(fig: go.Figure, *, interactive: bool = False, height: int | None = None
         width="stretch",  # use_container_width is deprecated as of Streamlit 1.49
         config=PLOTLY_CONFIG_INTERACTIVE if interactive else PLOTLY_CONFIG,
         theme=None,  # our template wins; Streamlit's would override the colorway
+        key=key,
     )
 
 
@@ -432,7 +450,7 @@ def series_by_role(fig: go.Figure, roles: Mapping[str, str]) -> go.Figure:
         colour = SEMANTIC[role]
         if getattr(trace, "line", None) is not None:
             trace.line.color = colour
-            trace.line.width = 2.4 if role == "deep" else 1.6
+            trace.line.width = 2.4 if role.startswith("deep") else 1.6
         if getattr(trace, "marker", None) is not None:
             trace.marker.color = colour
     return fig
