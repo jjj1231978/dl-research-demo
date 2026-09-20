@@ -65,5 +65,16 @@ def vol_target(
 
     # Avoid divide-by-zero: where realised vol is 0/NaN, scale is NaN
     # (caller can fillna(0) if they want a flat position).
+    #
+    # A zero estimate is not hypothetical. EWMA std over a warm-up window of
+    # identical returns — a flat or all-zero opening stretch, which several
+    # contracts have — is exactly 0, and target_vol / 0 is +inf, not NaN. A
+    # single inf then propagates through np.std and the drawdown path, so one
+    # bad day turned Sharpe, volatility, MDD and Calmar into NaN for a whole
+    # series. Mask non-finite and non-positive estimates so the day drops out
+    # instead, which is what the contract above already promised.
+    realised_vol_annual = realised_vol_annual.where(
+        np.isfinite(realised_vol_annual) & (realised_vol_annual > 0)
+    )
     scale = target_vol / realised_vol_annual
     return signal * scale

@@ -72,3 +72,34 @@ def test_vol_targeting_rejects_invalid_target(daily_returns):
 def test_vol_targeting_rejects_invalid_span(daily_returns):
     with pytest.raises(ValueError):
         vol_target(daily_returns, ewma_span=1)
+
+
+def test_zero_realised_vol_yields_nan_not_inf():
+    """A flat opening stretch makes the EWMA std exactly 0.
+
+    `target_vol / 0` is +inf, not NaN, so the first non-zero return after a
+    flat run used to come back as inf. A single inf then propagates through
+    np.std and the drawdown path, which is how one bad day turned Sharpe,
+    volatility, MDD and Calmar into NaN for a whole backtest series — and
+    why the Portfolio page rendered blanks for its own deep model.
+    """
+    signal = pd.Series([0.0, 0.0, 0.0, 0.01, -0.02, 0.015, 0.0])
+    out = vol_target(signal, target_vol=0.10, ewma_span=60)
+
+    assert not np.isinf(out.to_numpy()).any(), (
+        f"zero realised vol produced an infinite scale: {out.tolist()}"
+    )
+    # The affected day drops out rather than exploding, and the days with a
+    # genuine volatility estimate behind them still carry finite values.
+    assert out.notna().any(), "every day was masked; the guard is too wide"
+
+
+def test_zero_realised_vol_yields_nan_not_inf_dataframe():
+    """Same guard on the DataFrame path, which is what the panels use."""
+    flat = pd.Series([0.0, 0.0, 0.0, 0.01, -0.02, 0.015, 0.0])
+    frame = pd.DataFrame({"a": flat, "b": flat * 2.0})
+    out = vol_target(frame, target_vol=0.10, ewma_span=60)
+
+    assert not np.isinf(out.to_numpy()).any(), (
+        f"zero realised vol produced an infinite scale:\n{out}"
+    )
