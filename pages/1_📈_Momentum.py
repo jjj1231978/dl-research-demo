@@ -527,14 +527,10 @@ with tab4:
         st.info("Run `scripts/run_backtests.py --momentum` to populate the "
                 "exhibits.")
     else:
-        sub4a, sub4b, sub4c, sub4d = st.tabs(
-            [
-                "Raw TSMOM Performance (no rescaling, paper Exhibit 2)",
-                "Rescaled TSMOM Performance (σ_target=15%, paper Exhibit 3)",
-                "Cumulative Returns (rescaled, paper Exhibit 4)",
-                "Per-Asset Sharpe / Return / Vol Distributions (paper Exhibit 5)",
-            ]
-        )
+        # Stacked, not nested. A second tab layer inside a tab panel is hard
+        # to discover and gives the reader no sense of where they are; these
+        # exhibits are views of one comparison and belong in one scroll.
+        sub4a, sub4b, sub4c, sub4d = st.container(), st.container(), st.container(), st.container()
 
         # Map paper-column-name → report_metrics key (research.md R8)
         PAPER_COLS = [
@@ -576,6 +572,8 @@ with tab4:
             return pd.DataFrame(rows)
 
         with sub4a:
+            st.markdown("### Raw performance")
+            st.caption("Reproduces paper Exhibit 2. No volatility rescaling.")
             st.markdown("**Exhibit 2** — raw signal outputs (no σ_target rescaling)")
             df4a = _metric_table(vol_flag=False)
             st.dataframe(df4a, hide_index=True, width="stretch")
@@ -591,6 +589,8 @@ with tab4:
             )
 
         with sub4b:
+            st.markdown("### Rescaled performance")
+            st.caption("Reproduces paper Exhibit 3. Every strategy scaled to 15% volatility.")
             st.markdown("**Exhibit 3** — all strategies rescaled to σ_target = 15 %")
             df4b = _metric_table(vol_flag=True)
             st.dataframe(df4b, hide_index=True, width="stretch")
@@ -609,6 +609,8 @@ with tab4:
             )
 
         with sub4c:
+            st.markdown("### Cumulative returns")
+            st.caption("Reproduces paper Exhibit 4, on the rescaled panel.")
             st.markdown("**Exhibit 4 (panel a)** — cumulative returns, σ_target rescaled")
             fig4c = go.Figure()
             for label, key in STRAT_ORDER:
@@ -638,6 +640,8 @@ with tab4:
             )
 
         with sub4d:
+            st.markdown("### Per-asset distributions")
+            st.caption("Reproduces paper Exhibit 5. Sharpe, return and volatility across the 18 contracts.")
             st.markdown("**Exhibit 5** — per-asset distributions across the 5 strategies")
             # Compute per-asset metrics on the rescaled panel
             per_asset_rows = []

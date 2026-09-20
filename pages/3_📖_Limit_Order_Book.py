@@ -576,11 +576,13 @@ with tab2:
 
 
 with tab3:
-    sub3a, sub3b, sub3c = st.tabs(
-        ["3A. Architecture", "3B. Live Prediction Demo", "3C. Train your own"]
-    )
+    # Stacked, not nested. A second tab layer inside a tab panel is hard
+    # to discover and gives the reader no sense of where they are; these
+    # exhibits are views of one comparison and belong in one scroll.
+    sub3a, sub3b, sub3c = st.container(), st.container(), st.container()
 
     with sub3a:
+        st.markdown("### Architecture")
         st.subheader("DeepLOB — CNN + Inception + LSTM")
         st.markdown(
             "Architecture diagram (Zhang, Zohren, Roberts 2019, Fig. 3). "
@@ -643,6 +645,7 @@ digraph DeepLOB {
         )
 
     with sub3b:
+        st.markdown("### Live prediction demo")
         st.subheader("DeepLOB prediction on the demo slice")
         ckpt = _pretrained_dir() / "deeplob_fi2010_k10.pt"
         sidecar = _load_sidecar("deeplob")
@@ -715,6 +718,7 @@ digraph DeepLOB {
             )
 
     with sub3c:
+        st.markdown("### Train your own")
         st.subheader("Train your own DeepLOB checkpoint")
         st.markdown(
             "Training runs on Modal serverless GPU containers; the live app "
@@ -833,13 +837,14 @@ with tab4:
             "checkpoints)."
         )
     else:
-        sub4a, sub4b, sub4c = st.tabs([
-            "Performance Across Architectures (paper Table II)",
-            "Confusion Matrices — Top 3 by F1 (extends paper Table II)",
-            "Per-class F1 Breakdown (extends paper Table II)",
-        ])
+        # Stacked, not nested. A second tab layer inside a tab panel is hard
+        # to discover and gives the reader no sense of where they are; these
+        # exhibits are views of one comparison and belong in one scroll.
+        sub4a, sub4b, sub4c = st.container(), st.container(), st.container()
 
         with sub4a:
+            st.markdown("### Performance across architectures")
+            st.caption("Reproduces paper Table II.")
             st.markdown(
                 "**What Table II is in the paper.** The headline comparison "
                 "of Zhang, Zohren, Roberts (2019): one row per architecture "
@@ -911,6 +916,8 @@ with tab4:
             )
 
         with sub4b:
+            st.markdown("### Confusion matrices, top 3 by F1")
+            st.caption("Extends paper Table II.")
             st.markdown(
                 "**Why this is not in the paper.** Zhang et al. report "
                 "scalar metrics in Table II but do not break down where "
@@ -978,6 +985,8 @@ with tab4:
                 )
 
         with sub4c:
+            st.markdown("### Per-class F1 breakdown")
+            st.caption("Extends paper Table II.")
             st.markdown(
                 "**Why this is not in the paper.** Table II reports "
                 "macro-averaged F1 — a single number per architecture. "

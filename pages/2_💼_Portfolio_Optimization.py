@@ -529,10 +529,10 @@ with tab4:
     if backtest_panel.empty:
         st.info("Run `scripts/run_backtests.py --portfolio` to populate.")
     else:
-        sub4a, sub4b = st.tabs([
-            "Performance Across Methods (paper Table 1)",
-            "Cumulative Returns Across Methods (paper Figure 3)",
-        ])
+        # Stacked, not nested. A second tab layer inside a tab panel is hard
+        # to discover and gives the reader no sense of where they are; these
+        # exhibits are views of one comparison and belong in one scroll.
+        sub4a, sub4b = st.container(), st.container()
 
         def _panel_metric_table(p):
             rows = []
@@ -553,6 +553,8 @@ with tab4:
             return pd.DataFrame(rows)
 
         with sub4a:
+            st.markdown("### Performance across methods")
+            st.caption("Reproduces paper Table 1.")
             st.markdown(
                 "**What Table 1 is in the paper.** The paper's central "
                 "comparison: an 8-column performance summary — mean "
@@ -592,6 +594,8 @@ with tab4:
             )
 
         with sub4b:
+            st.markdown("### Cumulative returns across methods")
+            st.caption("Reproduces paper Figure 3.")
             st.markdown(
                 "**What Figure 3 is in the paper.** Three side-by-side "
                 "cumulative-return curves (log scale) of all nine "
