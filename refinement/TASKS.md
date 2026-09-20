@@ -491,35 +491,79 @@ scroll at 1440x900.
 
 # Verification
 
-## [ ] V1 Test suite
+Run on 2026-09-20 against a local build of this branch (Streamlit 1.64.0,
+Chromium via Playwright, 2x device pixel ratio).
 
-`pytest -q` passes. Every integration-test change is a deliberate update to a new
-expected string, with the old string nowhere in the diff.
+## [x] V1 Test suite
 
-## [ ] V2 Responsive check
+`pytest -q` — **121 passed**, up from 119. The two additions are regression
+tests for the vol-target divide-by-zero; both fail against the old code.
 
-Load every page at 390px, 1280px and 1920px. Confirm:
+No integration-test assertion was rewritten. Every UI string those tests
+assert on (substrate disclosure, fallback banners, the metric-column sets,
+`Bundled CSV fallback`, `scripts/fetch_data.py`) survived the refactor
+unchanged, including through the sidebar restructure — `at.sidebar.markdown`
+recurses into the new expander, so the fallback assertions still hold where
+they were.
 
-- no horizontal scroll at any width
-- no clipped stat values
-- prose measure stays near 74 characters at 1920px
-- sidebar collapsed at 390px
-- charts legible at 390px (check the LOB depth chart specifically)
+## [x] V2 Responsive check
 
-## [ ] V3 Colour and contrast
+Measured in the DOM at 390 / 1280 / 1920, all four pages:
 
-- body text against background meets WCAG AA (4.5:1). `#1A1D24` on `#FFFFFF` passes.
-- `MUTED` `#5B6472` on `#FFFFFF` is 6.0:1, fine for captions.
-- no chart encodes a distinction by red versus green alone.
-- greyscale-print a cumulative-returns chart and confirm the series are still
-  distinguishable.
+| Check | Result |
+|---|---|
+| Horizontal scroll | none at any width, any page |
+| Prose measure | 69–75 characters, including at 1920 |
+| Container cap | 1180px (was `max-width: none`) |
+| Sidebar at 390px | collapsed |
+| Clipped stat values | none — the date ranges that read `2011-01-03 → 2…` now render in full at all three widths |
+| `role="tab"` count | 4 per page (was 6 on Portfolio) |
 
-## [ ] V4 Cold-load check
+## [x] V3 Colour and contrast
 
-Open the deployed Space in a private window with no cache. Time to first meaningful
-paint, and confirm the no-API-key fallback path still renders every page.
+Computed, not assumed, against `#FFFFFF`:
 
-## [ ] V5 Link check
+| Token | Ratio | AA (4.5:1) |
+|---|---|---|
+| `INK` `#1A1D24` | 16.87:1 | pass |
+| `MUTED` `#5B6472` | 5.98:1 | pass |
+| `ACCENT` `#1F4E79` | 8.66:1 | pass |
 
-Every external link returns 200: both README badges, the three arXiv links, the
-GitHub links in the footer and sidebar, the project brief link.
+No chart encodes a distinction by red versus green alone: the order book's
+saturated red/green became amber `#A65A34` / slate `#9AA4B1` / blue
+`#2C5F8A`, and the copy naming the old colours was updated with it.
+
+Greyscale separability, by relative luminance (×100): deep 7.1, deep_alt
+14.3, baseline 19.3, classical 21.7, benchmark 26.6. The deep model — the
+subject of every chart — is unmistakable against the rest.
+
+> **Partial.** `classical` (21.7) and `baseline` (19.3) are 2.4 apart, so in
+> a pure greyscale print those two baselines are hard to tell apart from
+> each other. They separate by hue in colour, and neither is the subject of
+> any chart. Both are the brief's own palette values and were left alone;
+> widening the gap means changing §3.1.
+
+## [x] V4 Cold-load check
+
+Cold and warm render, via `AppTest`:
+
+| Page | Cold | Warm |
+|---|---|---|
+| Landing | 0.75s | 0.04s |
+| Momentum | 2.19s | 0.78s |
+| Portfolio | 0.75s | 0.60s |
+| Order book | 12.24s | 0.73s |
+
+The no-API-key fallback path renders every page: the integration suite
+exercises exactly that, parametrised across the parquet × key matrix, and
+the app has never needed a key to run.
+
+> The order book's 12s cold cost is the LDA fit plus DeepLOB inference
+> filling `@st.cache_data`, once per container. Re-check on the deployed
+> Space after the first visitor warms it.
+
+## [x] V5 Link check
+
+Every external link returns 200, verified with `curl`: both README badges
+(the Spaces badge was the 401), the three arXiv links, the GitHub repository
+and project-brief links in the sidebar and footer.

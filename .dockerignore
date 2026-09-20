@@ -6,6 +6,8 @@
 papers/
 notebooks/
 specs/
+refinement/
+docs/
 tests/
 .streamlit/secrets.toml
 .env
