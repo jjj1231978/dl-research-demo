@@ -4,16 +4,23 @@
 # This file is consumed by the HF Space Dockerfile.
 # DO NOT add GPU torch here — that lives in requirements-train.txt.
 #
-# Pinned to the versions resolved on 2026-09-20 (Python 3.12). The Space
-# rebuilds from this file, so an unpinned rebuild months from now could pull
-# a Streamlit major that renders the app differently. Re-pin deliberately:
-#   pip install -U -r requirements.txt && pip freeze
+# Pinned to the versions resolved on 2026-09-20. The Space rebuilds from this
+# file, so an unpinned rebuild months from now could pull a Streamlit major
+# that renders the app differently.
+#
+# Resolve against Python 3.11, NOT whatever your local interpreter happens to
+# be: the Dockerfile builds on python:3.11-slim and the README tells you to
+# make a 3.11 venv. numpy 2.5 dropped 3.11, so pinning from a 3.12 resolve
+# yields numpy==2.5.3 and the Space build fails with
+# "No matching distribution found". Re-pin deliberately, and check it:
+#   pip install --dry-run --only-binary=:all: --python-version 3.11 \
+#       --target /tmp/x -r requirements.txt
 
 streamlit==1.64.0
 torch==2.14.0+cpu
 pandas==3.0.6
 pyarrow==25.0.1
-numpy==2.5.3
+numpy==2.4.6
 scikit-learn==1.9.1
 plotly==7.1.0
 requests==2.34.2
