@@ -186,16 +186,13 @@ render_data_status_sidebar(st.sidebar)
 # Header
 # ──────────────────────────────────────────────────────────────────────
 
-st.title("📈 Momentum — Lim, Zohren, Roberts (2019)")
-st.markdown(
-    "*Enhancing Time Series Momentum Strategies Using Deep Neural Networks*, "
-    "**Journal of Financial Data Science** — "
-    "[arXiv:1904.04912](https://arxiv.org/abs/1904.04912)"
-)
-st.markdown(
-    "> Instead of forecasting returns and then sizing positions, train a "
-    "neural network end-to-end to directly output position sizes that "
-    "maximize Sharpe ratio."
+page_header(
+    title="Deep Momentum Networks",
+    citation="Lim, Zohren & Roberts (2019) · Journal of Financial Data Science",
+    arxiv_id="1904.04912",
+    standfirst="Instead of forecasting returns and then sizing positions, a "
+               "network is trained end to end to output the position size "
+               "directly, maximising Sharpe.",
 )
 
 # ──────────────────────────────────────────────────────────────────────
@@ -332,7 +329,7 @@ with tab1:
         "Sharpe values differ from the paper."
     )
 
-    with st.expander("📖 Ticker legend — what each BCOM root stands for", expanded=False):
+    with st.expander("Ticker legend — what each BCOM root stands for", expanded=False):
         st.markdown(
             "Ticker symbols on the Gantt chart and single-asset selector are "
             "the futures root codes used by the developer's databento lake. "
@@ -502,7 +499,7 @@ with tab3:
     else:
         st.info("Backtest panel not yet generated; run `scripts/run_backtests.py --momentum`.")
 
-    with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s on CPU", expanded=False):
+    with st.expander("Train your own (tiny subsample), under 30 s on CPU", expanded=False):
         st.markdown(
             "The Streamlit app itself does no training — it runs "
             "production inference only. To run a 1-epoch "
@@ -515,7 +512,7 @@ with tab3:
         )
         if not parquet_present:
             st.caption(
-                "⚠ The CLI needs a fetched futures parquet — see the **Data status** sidebar."
+                "The CLI needs a fetched futures parquet — see **Data sources** in the sidebar."
             )
 
 
@@ -694,7 +691,7 @@ with tab4:
 # Math + Code expanders
 # ──────────────────────────────────────────────────────────────────────
 
-with st.expander("📐 Math", expanded=False):
+with st.expander("Math", expanded=False):
     st.markdown("**Sharpe-loss objective** (Eq. 4 of paper)")
     st.latex(r"\mathcal{L}_{\mathrm{Sharpe}} = - \frac{\mathbb{E}_t[R_t]}{\sigma_t[R_t]}, \quad R_t = X_t \cdot r_{t+1}")
     st.caption("Negate so SGD minimises → maximises Sharpe. `X_t ∈ (-1, +1)` is the model's Softsign output.")
@@ -708,7 +705,7 @@ with st.expander("📐 Math", expanded=False):
     st.caption("Smoother saturation than tanh — gradients survive deeper into training under the Sharpe loss.")
 
 
-with st.expander("💻 Code", expanded=False):
+with st.expander("Code", expanded=False):
     st.markdown("**`src.models.deep_momentum.DeepMomentumMLP`**")
     st.code(inspect.getsource(DeepMomentumMLP), language="python")
     st.markdown("**`src.models.deep_momentum.DeepMomentumLSTM`**")

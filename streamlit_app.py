@@ -33,7 +33,7 @@ apply_page_chrome()
 render_data_status_sidebar(st.sidebar)
 
 # -- Hero ---------------------------------------------------------------------
-st.title("📈 Deep Learning for Quantitative Finance")
+st.title("Deep Learning for Quantitative Finance")
 st.markdown(
     "**An interactive showcase of three influential papers from the "
     "Oxford-Man Institute of Quantitative Finance, applying deep learning "
@@ -48,7 +48,7 @@ col1, col2, col3 = st.columns(3, gap="large")
 with col1:
     st.markdown(
         """
-### 📈 Deep Momentum Networks
+### Deep Momentum Networks
 
 *Lim, Zohren, Roberts (2019)*
 *Journal of Financial Data Science*
@@ -61,12 +61,12 @@ with col1:
 
 """
     )
-    st.page_link("pages/1_📈_Momentum.py", label="Explore Momentum →", icon="▶")
+    st.page_link("pages/1_📈_Momentum.py", label="Explore Momentum")
 
 with col2:
     st.markdown(
         """
-### 💼 Deep Portfolio Optimization
+### Deep Portfolio Optimization
 
 *Zhang, Zohren, Roberts (2020)*
 
@@ -79,12 +79,12 @@ with col2:
 
 """
     )
-    st.page_link("pages/2_💼_Portfolio_Optimization.py", label="Explore Portfolio Optimization →", icon="▶")
+    st.page_link("pages/2_💼_Portfolio_Optimization.py", label="Explore Portfolio Optimization")
 
 with col3:
     st.markdown(
         """
-### 📖 DeepLOB
+### DeepLOB
 
 *Zhang, Zohren, Roberts (2019)*
 *IEEE Transactions on Signal Processing*
@@ -97,7 +97,7 @@ with col3:
 
 """
     )
-    st.page_link("pages/3_📖_Limit_Order_Book.py", label="Explore Order Book →", icon="▶")
+    st.page_link("pages/3_📖_Limit_Order_Book.py", label="Explore Order Book")
 
 st.divider()
 

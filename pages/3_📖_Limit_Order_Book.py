@@ -326,14 +326,13 @@ render_data_status_sidebar(st.sidebar)
 
 # ── Header ────────────────────────────────────────────────────────────
 
-st.title("📖 Order Book — Zhang, Zohren, Roberts (2019)")
-st.markdown(
-    "*DeepLOB: Deep Convolutional Neural Networks for Limit Order Books*, "
-    "IEEE TSP — [arXiv:1808.03668](https://arxiv.org/abs/1808.03668)"
-)
-st.markdown(
-    "> A CNN + Inception + LSTM that learns universal LOB microstructure "
-    "features for 3-class mid-price-movement prediction."
+page_header(
+    title="DeepLOB",
+    citation="Zhang, Zohren & Roberts (2019) · IEEE Transactions on Signal Processing",
+    arxiv_id="1808.03668",
+    standfirst="A CNN, Inception and LSTM stack that learns universal limit "
+               "order book microstructure features, and predicts the next "
+               "mid-price move as one of three classes.",
 )
 
 
@@ -1053,7 +1052,7 @@ with tab4:
                 )
 
 
-with st.expander("📐 Math", expanded=False):
+with st.expander("Math", expanded=False):
     st.markdown("**Mid-price** (paper Eq. 1)")
     st.latex(r"p_t = \tfrac{1}{2}\bigl(p_t^{\text{ask},1} + p_t^{\text{bid},1}\bigr)")
 
@@ -1088,7 +1087,7 @@ with st.expander("📐 Math", expanded=False):
                  "captures multi-scale temporal patterns before the LSTM.")
 
 
-with st.expander("💻 Code", expanded=False):
+with st.expander("Code", expanded=False):
     st.markdown("**`src.models.deeplob.DeepLOB`**")
     st.code(inspect.getsource(DeepLOB), language="python")
     st.markdown("**`src.models.deeplob.LOBSimpleMLP`**")

@@ -197,15 +197,13 @@ render_data_status_sidebar(st.sidebar)
 
 # ── Header ────────────────────────────────────────────────────────────
 
-st.title("💼 Portfolio Optimization — Zhang, Zohren, Roberts (2020)")
-st.markdown(
-    "*Deep Learning for Portfolio Optimization* — "
-    "[arXiv:2005.13665](https://arxiv.org/abs/2005.13665)"
-)
-st.markdown(
-    "> A long-only portfolio with **softmax** output, trained by gradient "
-    "ascent to maximize Sharpe directly — no covariance matrix, no "
-    "expected-return forecast."
+page_header(
+    title="Deep Portfolio Optimization",
+    citation="Zhang, Zohren & Roberts (2020)",
+    arxiv_id="2005.13665",
+    standfirst="A long-only portfolio with a softmax output, trained by "
+               "gradient ascent to maximise Sharpe directly. No covariance "
+               "matrix, no expected-return forecast.",
 )
 
 # ── Data preflight ───────────────────────────────────────────────────
@@ -512,7 +510,7 @@ with tab3:
                                       yaxis_title="Daily return")
                 plot(fig_pnl, height=400)
 
-    with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s", expanded=False):
+    with st.expander("Train your own (tiny subsample), under 30 s", expanded=False):
         st.markdown(
             "The app runs inference only — it never trains. Use the CLI "
             "instead:\n\n"
@@ -639,7 +637,7 @@ with tab4:
             )
 
 
-with st.expander("📐 Math", expanded=False):
+with st.expander("Math", expanded=False):
     st.markdown(
         "**1 · The decision — what weight to put on each asset?**\n\n"
         "The network outputs raw scores $\\tilde w_1, \\dots, \\tilde w_N$ "
@@ -683,7 +681,7 @@ with st.expander("📐 Math", expanded=False):
     )
 
 
-with st.expander("💻 Code", expanded=False):
+with st.expander("Code", expanded=False):
     st.markdown("**`src.models.deep_portfolio.DeepPortfolioMLP`**")
     st.code(inspect.getsource(DeepPortfolioMLP), language="python")
     st.markdown("**`src.losses.Neg_Sharpe`**")
