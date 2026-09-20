@@ -267,8 +267,8 @@ def render_data_status_sidebar(sidebar) -> None:
 
     sidebar.markdown("## Links")
     sidebar.markdown(
-        f"- 🔗 [GitHub repository]({GITHUB_REPO_URL})\n"
-        f"- 📄 [Project brief](Project_brief.md)\n"
+        f"- [GitHub repository]({GITHUB_REPO_URL})\n"
+        f"- [Project brief]({GITHUB_REPO_URL}/blob/main/Project_brief.md)\n"
     )
 
 
