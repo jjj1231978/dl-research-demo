@@ -82,8 +82,18 @@ st.set_page_config(
     page_title="Order Book — Deep Finance Showcase",
     page_icon="📖",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
+
+from src.ui.theme import (
+    apply_page_chrome,
+    page_footer,
+    page_header,
+    plot,
+    stat_row,
+)
+
+apply_page_chrome()
 
 
 def _backtests_dir() -> Path:
@@ -685,8 +695,8 @@ digraph DeepLOB {
     with sub3c:
         st.subheader("Train your own DeepLOB checkpoint")
         st.markdown(
-            "Training runs on Modal (Constitution Principle III — the live "
-            "app does not invoke GPUs). End-to-end pipeline below."
+            "Training runs on Modal serverless GPU containers; the live app "
+            "never invokes a GPU. End-to-end pipeline below."
         )
 
         st.graphviz_chart(
@@ -1061,13 +1071,7 @@ with st.expander("💻 Code", expanded=False):
     st.code(inspect.getsource(LOBSimpleMLP), language="python")
 
 
-st.divider()
-st.caption(
-    "📄 [arXiv:1808.03668](https://arxiv.org/abs/1808.03668) · "
-    "💻 [pages/3_📖_Limit_Order_Book.py on GitHub]"
-    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/3_%F0%9F%93%96_Limit_Order_Book.py) · "
-    "Constitution v1.1.0."
-)
+st.markdown("## Citation")
 st.code(
     """@article{zhang2019deeplob,
   title={DeepLOB: Deep convolutional neural networks for limit order books},
@@ -1077,3 +1081,5 @@ st.code(
 }""",
     language="bibtex",
 )
+
+page_footer()

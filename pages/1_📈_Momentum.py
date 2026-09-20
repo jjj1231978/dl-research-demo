@@ -35,8 +35,18 @@ st.set_page_config(
     page_title="Momentum — Deep Finance Showcase",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
+
+from src.ui.theme import (
+    apply_page_chrome,
+    page_footer,
+    page_header,
+    plot,
+    stat_row,
+)
+
+apply_page_chrome()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -453,8 +463,8 @@ with tab3:
 
     with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s on CPU", expanded=False):
         st.markdown(
-            "The Streamlit app itself does no training (Constitution "
-            "Principle III — production inference only). To run a 1-epoch "
+            "The Streamlit app itself does no training — it runs "
+            "production inference only. To run a 1-epoch "
             "CPU smoke training on a 1-contract × 1-year subset of the "
             "futures panel locally, use the CLI:"
         )
@@ -667,13 +677,7 @@ with st.expander("💻 Code", expanded=False):
 # Footer
 # ──────────────────────────────────────────────────────────────────────
 
-st.divider()
-st.caption(
-    "📄 [arXiv:1904.04912](https://arxiv.org/abs/1904.04912) · "
-    "💻 [pages/1_📈_Momentum.py on GitHub]"
-    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/1_%F0%9F%93%88_Momentum.py) · "
-    "Constitution v1.1.0."
-)
+st.markdown("## Citation")
 st.code(
     """@article{lim2019enhancing,
   title={Enhancing Time Series Momentum Strategies Using Deep Neural Networks},
@@ -683,3 +687,5 @@ st.code(
 }""",
     language="bibtex",
 )
+
+page_footer()

@@ -16,8 +16,18 @@ st.set_page_config(
     page_title="Deep Finance Showcase",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
+
+from src.ui.theme import (
+    apply_page_chrome,
+    page_footer,
+    page_header,
+    plot,
+    stat_row,
+)
+
+apply_page_chrome()
 
 # -- Sidebar (data status, FMP key input, links) -----------------------------
 render_data_status_sidebar(st.sidebar)
@@ -122,8 +132,4 @@ through the live model on the paper's canonical data.
 )
 
 # -- Footer -------------------------------------------------------------------
-st.divider()
-st.caption(
-    "Source code on [GitHub](https://github.com/jjj1231978/dl-research-demo). "
-    "Deployed on Hugging Face Spaces. Constitution v1.1.0."
-)
+page_footer()

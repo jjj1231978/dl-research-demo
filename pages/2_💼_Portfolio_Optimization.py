@@ -65,8 +65,18 @@ st.set_page_config(
     page_title="Portfolio — Deep Finance Showcase",
     page_icon="💼",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
+
+from src.ui.theme import (
+    apply_page_chrome,
+    page_footer,
+    page_header,
+    plot,
+    stat_row,
+)
+
+apply_page_chrome()
 
 
 def _backtests_dir() -> Path:
@@ -450,8 +460,8 @@ with tab3:
 
     with st.expander("🧪 Train your own (tiny subsample) — ≤ 30 s", expanded=False):
         st.markdown(
-            "Smoke training not wired in the page (Constitution Principle "
-            "III). Use the CLI instead:\n\n"
+            "The app runs inference only — it never trains. Use the CLI "
+            "instead:\n\n"
             f"```bash\npython -m src.training.train_deep_portfolio "
             f"--universe {universe} --max-epochs 1 -v\n```"
         )
@@ -627,13 +637,7 @@ with st.expander("💻 Code", expanded=False):
     st.code(inspect.getsource(Neg_Sharpe), language="python")
 
 
-st.divider()
-st.caption(
-    "📄 [arXiv:2005.13665](https://arxiv.org/abs/2005.13665) · "
-    "💻 [pages/2_💼_Portfolio_Optimization.py on GitHub]"
-    "(https://github.com/jjj1231978/dl-research-demo/blob/main/pages/2_%F0%9F%92%BC_Portfolio_Optimization.py) · "
-    "Constitution v1.1.0."
-)
+st.markdown("## Citation")
 st.code(
     """@article{zhang2020deep,
   title={Deep Learning for Portfolio Optimization},
@@ -643,3 +647,5 @@ st.code(
 }""",
     language="bibtex",
 )
+
+page_footer()
