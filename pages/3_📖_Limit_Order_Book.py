@@ -290,15 +290,18 @@ def _mid_price_proxy(demo: pd.DataFrame) -> np.ndarray:
 
 # ── Sidebar ───────────────────────────────────────────────────────────
 
-st.sidebar.title("📖 Limit Order Book")
-st.sidebar.markdown("**Zhang, Zohren, Roberts (2019)** — FI-2010 Setup 2.")
+st.sidebar.markdown("## Parameters")
 
 horizon_k = st.sidebar.selectbox(
-    "Prediction horizon (k)",
+    "Prediction horizon",
     options=list(_HORIZONS),
     index=0,
     key="lob_horizon_k",
-    help="Only k=10 is reproduced locally; others are paper-reported only.",
+    help=(
+        "How many ticks ahead the mid-price move is labelled. Only the "
+        "10-tick horizon is reproduced here; the others are the paper's "
+        "own reported numbers."
+    ),
 )
 
 demo_present = _demo_path().exists()
@@ -308,12 +311,13 @@ mid_tick = max(0, n_demo // 2)
 tick_max = max(0, n_demo - 1)
 
 tick_idx = st.sidebar.slider(
-    "Tick index in demo slice",
+    "Tick index",
     min_value=0,
     max_value=max(1, tick_max),
     value=min(mid_tick, tick_max) if tick_max else 0,
     key="lob_tick",
     disabled=not demo_present,
+    help="Position in the bundled demo slice of the order book.",
 )
 
 st.sidebar.divider()

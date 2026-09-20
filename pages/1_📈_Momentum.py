@@ -121,8 +121,7 @@ def _load_aapl_toy(csv_path_str: str) -> pd.DataFrame:
 # Sidebar
 # ──────────────────────────────────────────────────────────────────────
 
-st.sidebar.title("📈 Momentum")
-st.sidebar.markdown("**Lim, Zohren, Roberts (2019)** — sharpe-loss only.")
+st.sidebar.markdown("## Parameters")
 
 asset_set = st.sidebar.selectbox(
     "Asset set",
@@ -141,20 +140,36 @@ else:
     st.session_state.setdefault("momentum_single_asset", "CL")
 
 vol_scaling = st.sidebar.checkbox(
-    "Volatility scaling (σ_target = 15%)", value=True, key="momentum_vol_scaling",
+    "Scale to 15% volatility",
+    value=True,
+    key="momentum_vol_scaling",
+    help=(
+        "Rescales every strategy's daily return to the same ex-ante 15% "
+        "annualised volatility budget, so Sharpe compares directly across "
+        "strategies. This is the paper's Exhibit 3 convention."
+    ),
 )
 ewma_span = st.sidebar.number_input(
-    "EWMA span (vol lookback, days)", min_value=5, max_value=252, value=60, step=5,
+    "Volatility lookback",
+    min_value=5, max_value=252, value=60, step=5,
     key="momentum_ewma_span",
+    help=(
+        "Span of the exponentially weighted estimate of recent realised "
+        "volatility, in trading days. Shorter reacts faster and trades more."
+    ),
 )
 # Date-range slider — bounds inferred from data when present; safe fallback otherwise
 _today = _dt.date.today()
 date_range = st.sidebar.slider(
-    "Backtest range",
+    "Backtest window",
     min_value=_dt.date(2010, 6, 6),
     max_value=_today,
     value=(TEST_START, _today),
     key="momentum_date_range",
+    help=(
+        "Defaults to the out-of-sample window. Widen it to include the "
+        "training period if you want to inspect in-sample overfitting."
+    ),
 )
 deep_model = st.sidebar.selectbox(
     "Deep model",

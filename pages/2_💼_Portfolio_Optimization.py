@@ -142,42 +142,53 @@ def _load_backtest_panel(parquet_path_str: str) -> pd.DataFrame:
 
 # ── Sidebar ───────────────────────────────────────────────────────────
 
-st.sidebar.title("💼 Portfolio Optimization")
-st.sidebar.markdown("**Zhang, Zohren, Roberts (2020)** — Sharpe-loss only.")
+st.sidebar.markdown("## Parameters")
 
 universe_display = st.sidebar.selectbox(
     "Universe",
     options=list(_UNIVERSE_KEYS),
     key="portfolio_universe",
+    help="The paper's own four-ETF basket, or a sector-spread S&P 500 subset.",
 )
 universe = _UNIVERSE_KEYS[universe_display]
 
 cost_label = st.sidebar.selectbox(
-    "Transaction cost rate",
+    "Transaction cost",
     options=list(_COST_RATES),
     key="portfolio_cost_rate",
+    help="Charged on the absolute change in weights at each rebalance.",
 )
 selected_cost = _COST_RATES[cost_label]
 
 vol_scaling = st.sidebar.checkbox(
-    "Volatility scaling (σ_target = 10%)",
+    "Scale to 10% volatility",
     value=True,
     key="portfolio_vol_scaling",
+    help=(
+        "Rescales every method's daily return to the same ex-ante 10% "
+        "annualised volatility budget, so Sharpe and drawdown compare "
+        "directly across methods. This is the paper's Table 1 convention."
+    ),
 )
 
 lookback = st.sidebar.slider(
-    "Rolling window (classical, days)",
+    "Rolling window",
     min_value=20, max_value=252, value=50, step=5,
     key="portfolio_lookback",
+    help=(
+        "Trailing days of returns used by the classical estimators — Min "
+        "Variance and Max Diversification. Measured in trading days."
+    ),
 )
 
 _today = _dt.date.today()
 date_range = st.sidebar.slider(
-    "Backtest range (Tab 2 / Tab 4)",
+    "Backtest window",
     min_value=_dt.date(2006, 6, 30),
     max_value=_today,
     value=(_dt.date(2020, 1, 1), _today),
     key="portfolio_date_range",
+    help="Filters the benchmark and key-results exhibits.",
 )
 
 st.sidebar.divider()

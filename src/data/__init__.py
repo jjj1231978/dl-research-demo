@@ -224,14 +224,19 @@ def render_data_status_sidebar(sidebar) -> None:
     from src import GITHUB_REPO_URL
     from src.universes import UNIVERSES
 
-    sidebar.markdown("## Data status")
+    # Two sections, in the order a visitor needs them: everything that is
+    # status rather than control is collapsed, because a visitor never needs
+    # it open, and the links come last.
+    sidebar.markdown("## Data")
 
-    # Universes intentionally hidden from the landing sidebar:
+    # Universes intentionally hidden from the sidebar:
     # - aapl_toy: single-asset CSV fallback used only by Momentum toy mode.
     # - sp500_100: per OD-2 the 100-stock universe is deferred; surfacing a
     #   permanent "Not yet available" row adds noise.
     _HIDDEN_FROM_SIDEBAR = {"aapl_toy", "sp500_100"}
 
+    rows: list[str] = []
+    stale = False
     for universe in UNIVERSES.values():
         if universe.name in _HIDDEN_FROM_SIDEBAR:
             continue
@@ -241,34 +246,39 @@ def render_data_status_sidebar(sidebar) -> None:
             caption = f"Refreshed {snapshot.refresh_ts:%Y-%m-%d}"
         elif snapshot.source_kind == "csv":
             icon = "⚠"
+            stale = True
             caption = (
                 "Bundled CSV fallback — run `scripts/fetch_data.py` for live data"
             )
         else:
             icon = "⊝"
+            stale = True
             caption = "Not yet available"
-        sidebar.markdown(f"**{icon} {universe.label}** — {caption}")
+        rows.append(f"**{icon} {universe.label}** — {caption}")
 
-    sidebar.divider()
+    summary = "Data sources" if not stale else "Data sources — check"
+    with sidebar.expander(summary, expanded=False):
+        for row in rows:
+            st.markdown(row)
+        st.divider()
+        st.text_input(
+            "FMP API key (optional)",
+            type="password",
+            key="fmp_api_key_input",
+            help=(
+                "Captured for a future in-app refresh feature. The fetch "
+                "workflow is currently a developer-local script, "
+                "`scripts/fetch_data.py`."
+            ),
+        )
 
-    sidebar.markdown("## Refresh data")
-    sidebar.text_input(
-        "FMP API key (optional)",
-        type="password",
-        key="fmp_api_key_input",
-        help=(
-            "Captured for a future in-app refresh feature. Phase 0 keeps "
-            "the fetch workflow as a developer-local script (see "
-            "`scripts/fetch_data.py`)."
-        ),
-    )
-
-    sidebar.divider()
-
-    sidebar.markdown("## Links")
+    sidebar.markdown("## About")
     sidebar.markdown(
         f"- [GitHub repository]({GITHUB_REPO_URL})\n"
         f"- [Project brief]({GITHUB_REPO_URL}/blob/main/Project_brief.md)\n"
+        f"- [Lim, Zohren & Roberts (2019)](https://arxiv.org/abs/1904.04912)\n"
+        f"- [Zhang, Zohren & Roberts (2020)](https://arxiv.org/abs/2005.13665)\n"
+        f"- [Zhang, Zohren & Roberts (2019)](https://arxiv.org/abs/1808.03668)\n"
     )
 
 
