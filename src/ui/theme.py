@@ -48,10 +48,12 @@ CATEGORICAL: tuple[str, ...] = (
 SEMANTIC: Mapping[str, str] = {
     "deep": "#1F4E79",
     # A second tone in the deep family, for the pages that show two of the
-    # paper's own models side by side (Momentum runs MLP and LSTM). It is
-    # lighter rather than a different hue, so the pair still reads as one
-    # family and stays separable in greyscale.
-    "deep_alt": "#5389B5",
+    # paper's own models side by side (Momentum runs MLP and LSTM). Same hue
+    # family as `deep`, a step lighter, so the pair reads as one family.
+    # Chosen on measured luminance: it sits at L=14.3 between deep (7.1) and
+    # baseline (19.3), where the obvious lighter blue collided with
+    # classical (21.7) and vanished from a greyscale print.
+    "deep_alt": "#3D6E96",
     "benchmark": "#C77B3C",
     "classical": "#4C8C7A",
     "baseline": "#6E7B8B",

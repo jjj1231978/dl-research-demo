@@ -55,6 +55,10 @@ st.divider()
 # same pre-computed panels the pages themselves use, rather than typed in, so
 # a card cannot drift away from the page it links to.
 
+# The deep_portfolio checkpoints train through 2019-12-31; see
+# data/pretrained/deep_portfolio_*.json.
+_PORTFOLIO_TEST_START = "2020-01-01"
+
 _BACKTESTS = Path(
     os.environ.get("DEEP_FINANCE_BACKTESTS_DIR",
                    str(Path(__file__).resolve().parent / "data" / "backtests"))
@@ -88,11 +92,16 @@ def _headlines() -> dict[str, str]:
     except Exception:  # noqa: BLE001 — a card without a number still renders
         pass
 
-    # Portfolio: the paper's own four-ETF basket, scaled, at 1bp costs.
+    # Portfolio: the paper's own four-ETF basket, scaled, at 1bp costs, and
+    # restricted to the checkpoint's test window. The panel starts in 2011 but
+    # deep_portfolio trained through 2019-12-31, so an all-history average
+    # would quote a partly in-sample number — and would disagree with the
+    # page, whose backtest window defaults to the same split.
     try:
         p_ = pd.read_parquet(_BACKTESTS / "portfolio_results.parquet")
         p_ = p_[(p_["universe"] == "etfs") & (p_["vol_scaling"])
-                & (p_["cost_rate"] == 0.0001)]
+                & (p_["cost_rate"] == 0.0001)
+                & (p_["date"] >= pd.Timestamp(_PORTFOLIO_TEST_START))]
         deep = _sharpe(p_[p_["method"] == "deep_portfolio"]["portfolio_return"])
         rest = [
             _sharpe(p_[p_["method"] == k]["portfolio_return"])

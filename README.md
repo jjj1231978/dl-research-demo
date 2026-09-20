@@ -23,9 +23,7 @@ and bundled, so every page renders on a fresh clone with no API key and no GPU.
 [![GitHub](https://img.shields.io/badge/GitHub-source-blue)](https://github.com/jjj1231978/dl-research-demo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-<!-- TODO(T0.3): add the hero screenshot once Tier 1 is merged.
 [![Deep Finance Showcase](docs/hero.png)](https://huggingface.co/spaces/JJ-JIN12345/dl-research-demo)
--->
 
 ## The papers
 
