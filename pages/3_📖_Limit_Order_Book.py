@@ -352,6 +352,56 @@ if not demo_present:
     )
 
 
+# ── Result ────────────────────────────────────────────────────────────
+# A visitor reads in the opposite order to the one a paper is written in:
+# they want to know whether the result is interesting before they invest
+# attention in the method. The walkthrough still runs in the tabs below.
+
+if not panel.empty:
+    _repro = panel[(panel["source"] == "reproduced_here") & (panel["k"] == 10)]
+    _deep_row = _repro[_repro["method"] == "deeplob"]
+    # The classical baselines this repo reproduces itself, as opposed to the
+    # deep architectures it also trains.
+    _classical = _repro[_repro["method"].isin(("lda", "svm", "bof", "mcsda"))]
+
+    if not _deep_row.empty and not _classical.empty:
+        _deep_f1 = float(_deep_row["f1_macro"].iloc[0])
+        _deep_acc = float(_deep_row["accuracy"].iloc[0])
+        _best_cls = _classical.nlargest(1, "f1_macro").iloc[0]
+        st.markdown("## Result")
+        stat_row([
+            ("DeepLOB macro-F1", f"{_deep_f1 * 100:.1f}%",
+             f"accuracy {_deep_acc * 100:.1f}%"),
+            ("Best classical",
+             f"{float(_best_cls['f1_macro']) * 100:.1f}%",
+             _ARCH_LABEL.get(_best_cls["method"], _best_cls["method"])),
+            ("Task", "3-class, k = 10",
+             "FI-2010 Setup 2, test days 8-10"),
+        ])
+        st.markdown(
+            "Predicting which way the mid-price moves ten ticks ahead, from "
+            "the raw ten-level order book and nothing else. No hand-crafted "
+            "microstructure features: the convolution stack learns them from "
+            "the price/volume grid, and the LSTM reads them over time."
+        )
+        _hero = pd.DataFrame({
+            "Method": [_ARCH_LABEL.get(m, m) for m in _repro["method"]],
+            "F1": [round(v * 100, 1) for v in _repro["f1_macro"]],
+        }).sort_values("F1")
+        _fig_hero = px.bar(_hero, x="F1", y="Method", orientation="h")
+        _fig_hero.update_traces(marker_color=[
+            ACCENT if m == "DeepLOB" else "#9AA4B1" for m in _hero["Method"]
+        ])
+        _fig_hero.update_layout(xaxis_title="Macro-F1 (×100)", yaxis_title="",
+                                hovermode="closest")
+        plot(_fig_hero, height=260, key="lob_result_hero")
+        st.caption(
+            "Macro-F1 across every architecture reproduced here. The paper's "
+            "own reported rows, and the per-class breakdown, are in Key "
+            "Results below."
+        )
+
+
 # ── Tabs ──────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3, tab4 = st.tabs(

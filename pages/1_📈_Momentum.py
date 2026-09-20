@@ -221,6 +221,88 @@ else:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Result
+# ──────────────────────────────────────────────────────────────────────
+# A visitor reads in the opposite order to the one a paper is written in:
+# they want to know whether the result is interesting before they invest
+# attention in the method. The walkthrough still runs in the tabs below.
+
+_REF_KEYS = {"Long Only": "long_only", "Sgn(Returns)": "sgn_returns",
+             "MACD": "macd"}
+_DEEP_KEYS = {"MLP-Sharpe": "mlp_sharpe", "LSTM-Sharpe": "lstm_sharpe"}
+
+
+def _strategy_sharpe(key: str) -> float:
+    sub = backtest_panel[
+        (backtest_panel["strategy"] == key)
+        & (backtest_panel["vol_scaling"] == vol_scaling)
+    ]
+    if sub.empty:
+        return float("nan")
+    d = (sub.groupby("date")["daily_return"].mean()
+         .replace([np.inf, -np.inf], np.nan).dropna().to_numpy())
+    if len(d) < 2 or np.std(d) == 0:
+        return float("nan")
+    return float(report_metrics(d)["annual_sharpe"])
+
+
+if not backtest_panel.empty:
+    _deep = {lab: _strategy_sharpe(k) for lab, k in _DEEP_KEYS.items()}
+    _deep = {k: v for k, v in _deep.items() if np.isfinite(v)}
+    _refs = {lab: _strategy_sharpe(k) for lab, k in _REF_KEYS.items()}
+    _refs = {k: v for k, v in _refs.items() if np.isfinite(v)}
+
+    if _deep and _refs:
+        _best_deep = max(_deep, key=_deep.get)
+        _best_ref = max(_refs, key=_refs.get)
+        _lo_shown, _hi_shown = date_range[0], date_range[1]
+        st.markdown("## Result")
+        stat_row([
+            (_best_deep, f"{_deep[_best_deep]:.2f}", "annualised Sharpe"),
+            ("Best classical", f"{_refs[_best_ref]:.2f}", _best_ref),
+            ("Period", f"{_lo_shown} to {_hi_shown}",
+             f"{backtest_panel['date'].nunique():,} trading days"),
+        ])
+        st.markdown(
+            "Both the classical signals and the deep models see the same "
+            "features. The classical ones forecast a direction and then size "
+            "the position; the deep models output the position directly, "
+            "trained on negative Sharpe."
+        )
+        # The panel spans the training window as well as the test window, and
+        # the default slider position starts at the test split for a reason:
+        # the MLP memorises 2010-2019, so a range widened to include it
+        # reports an in-sample Sharpe that means nothing out of sample.
+        if pd.Timestamp(_lo_shown) < pd.Timestamp(TEST_START):
+            st.warning(
+                f"The selected window starts before the {TEST_START} "
+                "train/test split, so these figures are partly **in-sample** "
+                "and overstate what the deep models achieve out of sample. "
+                "Reset the backtest window to compare fairly."
+            )
+        _res = go.Figure()
+        for _lab, _key in ((_best_deep, _DEEP_KEYS[_best_deep]),
+                           (_best_ref, _REF_KEYS[_best_ref])):
+            _sub = backtest_panel[
+                (backtest_panel["strategy"] == _key)
+                & (backtest_panel["vol_scaling"] == vol_scaling)
+            ]
+            if _sub.empty:
+                continue
+            _d = (_sub.groupby("date")["daily_return"].mean()
+                  .replace([np.inf, -np.inf], np.nan).dropna())
+            _res.add_trace(go.Scatter(x=_d.index, y=(1 + _d).cumprod().values,
+                                      mode="lines", name=_lab))
+        series_by_role(_res, {_best_deep: "deep", _best_ref: "benchmark"})
+        _res.update_layout(yaxis_type="log")
+        plot(_res, height=300, key="mom_result_hero")
+        st.caption(
+            "Cumulative return, log scale. The full five-strategy comparison "
+            "across all four paper exhibits is in Key Results below."
+        )
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────────────────────────────
 

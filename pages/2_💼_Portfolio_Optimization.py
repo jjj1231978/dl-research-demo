@@ -225,6 +225,84 @@ else:
     backtest_panel = backtest_full
 
 
+# ── Result ────────────────────────────────────────────────────────────
+# A visitor reads in the opposite order to the one a paper is written in:
+# they want to know whether the result is interesting before they invest
+# attention in the method. The walkthrough still runs in the tabs below.
+
+
+def _sharpe(returns) -> float:
+    r = pd.Series(returns).replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
+    if len(r) < 2 or not np.isfinite(r).all() or np.std(r) == 0:
+        return float("nan")
+    return float(report_metrics(r)["annual_sharpe"])
+
+
+if not backtest_panel.empty:
+    _active = backtest_panel[
+        (backtest_panel["vol_scaling"] == vol_scaling)
+        & (backtest_panel["cost_rate"] == selected_cost)
+    ]
+    _deep_sharpe = _sharpe(
+        _active[_active["method"] == "deep_portfolio"]["portfolio_return"]
+    )
+    _best_label, _best_sharpe = None, -np.inf
+    for _m in _active["method"].unique():
+        if _m == "deep_portfolio":
+            continue
+        _s = _sharpe(_active[_active["method"] == _m]["portfolio_return"])
+        if np.isfinite(_s) and _s > _best_sharpe:
+            _best_sharpe, _best_label = _s, _METHOD_LABELS.get(_m, _m)
+
+    if np.isfinite(_deep_sharpe) and _best_label:
+        _dates = _active["date"]
+        st.markdown("## Result")
+        stat_row([
+            ("Deep Portfolio", f"{_deep_sharpe:.2f}", "annualised Sharpe"),
+            (f"Best classical", f"{_best_sharpe:.2f}", _best_label),
+            ("Period",
+             f"{_dates.min().date()} to {_dates.max().date()}",
+             f"{_active['date'].nunique():,} trading days"),
+        ])
+        _verdict = (
+            "ahead of every classical method"
+            if _deep_sharpe > _best_sharpe
+            else "behind the best classical method"
+        )
+        st.markdown(
+            f"On the {universe_display} at {cost_label} costs"
+            f"{', scaled to a 10% volatility budget' if vol_scaling else ', unscaled'}"
+            f", the softmax network trained on negative Sharpe comes out "
+            f"**{_verdict}** — with no covariance matrix and no "
+            f"expected-return forecast anywhere in the pipeline."
+        )
+        _res = go.Figure()
+        for _m, _role in (("deep_portfolio", "Deep Portfolio"),
+                          (None, _best_label)):
+            if _m is None:
+                _rows = _active[
+                    _active["method"].map(
+                        lambda x: _METHOD_LABELS.get(x, x)) == _best_label
+                ]
+            else:
+                _rows = _active[_active["method"] == _m]
+            if _rows.empty:
+                continue
+            _d = _rows.set_index("date")["portfolio_return"].replace(
+                [np.inf, -np.inf], np.nan).dropna()
+            _res.add_trace(go.Scatter(
+                x=_d.index, y=(1 + _d).cumprod().values, mode="lines",
+                name=_role,
+            ))
+        series_by_role(_res, {"Deep Portfolio": "deep", _best_label: "benchmark"})
+        _res.update_layout(yaxis_type="log")
+        plot(_res, height=300, key="pf_result_hero")
+        st.caption(
+            "Cumulative return, log scale. The full comparison across all "
+            "nine methods and three cost panels is in Key Results below."
+        )
+
+
 # ── Tabs ──────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3, tab4 = st.tabs(
