@@ -3,17 +3,22 @@
 # Production runtime — CPU PyTorch + Streamlit + data + tests.
 # This file is consumed by the HF Space Dockerfile.
 # DO NOT add GPU torch here — that lives in requirements-train.txt.
+#
+# Pinned to the versions resolved on 2026-09-20 (Python 3.12). The Space
+# rebuilds from this file, so an unpinned rebuild months from now could pull
+# a Streamlit major that renders the app differently. Re-pin deliberately:
+#   pip install -U -r requirements.txt && pip freeze
 
-streamlit
-torch
-pandas
-pyarrow
-numpy
-scikit-learn
-plotly
-requests
-python-dotenv
+streamlit==1.64.0
+torch==2.14.0+cpu
+pandas==3.0.6
+pyarrow==25.0.1
+numpy==2.5.3
+scikit-learn==1.9.1
+plotly==7.1.0
+requests==2.34.2
+python-dotenv==1.2.3
 
 # Tests run on the production environment so pytest ships here.
-pytest
-pytest-cov
+pytest==9.1.1
+pytest-cov==7.1.0
