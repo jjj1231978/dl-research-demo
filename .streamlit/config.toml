@@ -1,3 +1,12 @@
+# .streamlit/config.toml
+# Deep Finance Showcase: institutional research theme.
+#
+# The [server] and [browser] blocks below are the repo's existing settings,
+# copied verbatim. Everything from [client] down is new.
+#
+# Version sensitivity: see the marked block. Check the Streamlit version you
+# pinned in T0.4 before keeping it.
+
 [server]
 headless = true
 port = 7860
@@ -5,3 +14,66 @@ address = "0.0.0.0"
 
 [browser]
 gatherUsageStats = false
+
+
+# ----------------------------------------------------------------------
+# Client chrome
+# ----------------------------------------------------------------------
+[client]
+# "minimal" drops the Deploy button and trims the hamburger menu to
+# Rerun / Settings. A visitor to a showcase has no use for the dev menu.
+toolbarMode = "minimal"
+
+# Keep Python tracebacks off a public page. Errors still reach the logs.
+# Streamlit >= 1.42 takes a string. Older versions take a bool: false.
+showErrorDetails = "none"
+
+
+# ----------------------------------------------------------------------
+# Theme: core keys, safe on Streamlit >= 1.28
+# ----------------------------------------------------------------------
+[theme]
+base = "light"
+
+# Deep institutional blue, replacing Streamlit's default #FF4B4B. That red
+# is the loudest "unstyled Streamlit app" signal on the page: it drives
+# slider tracks and handles, the active tab underline, checkboxes, the
+# running spinner and link colour.
+primaryColor = "#1F4E79"
+
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F8"
+textColor = "#1A1D24"
+
+font = "sans serif"
+
+
+# ----------------------------------------------------------------------
+# VERSION-SENSITIVE BLOCK (Streamlit >= 1.44)
+# Delete from here to the end of the file if your pinned version rejects a
+# key. None of it is load-bearing; the palette above carries the theme.
+# ----------------------------------------------------------------------
+linkColor = "#1F4E79"
+borderColor = "#E2E6EB"
+showWidgetBorder = true
+baseRadius = "small"
+baseFontSize = 15
+
+# Optional upgrade: a real typeface instead of the system stack. Self-host
+# the woff2 files under static/ so the Space does not depend on a CDN.
+#
+# [[theme.fontFaces]]
+# family = "Source Serif 4"
+# url = "app/static/SourceSerif4-Regular.woff2"
+# weight = 400
+# style = "normal"
+#
+# headingFont = "Source Serif 4"
+# font = "Source Sans 3"
+
+
+# Sidebar gets its own surface, so it reads as chrome rather than content.
+[theme.sidebar]
+backgroundColor = "#F7F8FA"
+secondaryBackgroundColor = "#FFFFFF"
+borderColor = "#E2E6EB"
