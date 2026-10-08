@@ -75,7 +75,7 @@ Three sub-tabs:
 | A | absent | absent | Setup-instruction banner; no exception |
 | B | absent | present | Setup-instruction banner; no exception |
 | C | present | absent | Tab 2/3 show demo; Tab 3 model card "missing checkpoint" warning |
-| D | present | present | All four tabs functional; Tab 4A 6-row table |
+| D | present | present | All four tabs functional; Tab 4A 9+-row table (8 paper-reported incl. DeepLOB, plus reproduced) |
 
 ## Copy-text invariants
 

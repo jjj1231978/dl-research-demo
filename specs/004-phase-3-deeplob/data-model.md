@@ -31,7 +31,7 @@ developer's `~/data_lake/fi2010/` and the Modal Volume.
 - `day ∈ {1, ..., 7}` → train
 - `day ∈ {8, 9, 10}` → test
 
-**Row cardinality**: ~3.5M train rows + ~800k test rows ≈ 4.3M total.
+**Row cardinality**: 254,750 train rows + 139,587 test rows = 394,337 total — the standard FI-2010 NoAuction/DecPre release, sampled every 10 events, which is what the paper's own code trains on.
 
 ---
 

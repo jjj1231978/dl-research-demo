@@ -194,11 +194,15 @@ the demo slice).
   on the developer's machine.
 - **SC-002**: All 4 tabs of `pages/3_📖_Order_Book.py` render in ≤ 3 s
   on HF CPU Basic.
-- **SC-003**: DeepLOB Setup 2 k=10 F1 is qualitatively consistent with
-  paper Table II — **DeepLOB MUST achieve F1 ≥ 60%** (paper reports
-  77%; ours runs on the same FI-2010 dataset but may differ slightly
-  due to random init / training hyperparams; ≥ 60% confirms the
-  architecture is implemented correctly).
+- **SC-003**: DeepLOB Setup 2 k=10 is consistent with paper Table II,
+  compared in the paper's own convention. The paper's DeepLOB row is
+  Accuracy 84.47 / Precision 84.00 / Recall 84.47 / F1 83.40; recall
+  equal to accuracy at every horizon means these are **weighted**
+  averages. **DeepLOB MUST achieve weighted F1 ≥ 80%** (within ~3.5
+  points of the paper; one seed, PyTorch rather than Keras). Macro F1,
+  the stricter view, is reported alongside, not against the paper.
+  (An earlier version of this criterion said "paper reports 77%" —
+  that is C(TABL)'s F1, not DeepLOB's.)
 - **SC-004**: DeepLOB F1 > each of the 4 reproduced baselines (MLP /
   CNN-I / CNN-II / LSTM). Paper's qualitative ordering.
 - **SC-005**: `pytest -v` exits 0 from a clean checkout.

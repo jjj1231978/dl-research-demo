@@ -33,6 +33,15 @@ if str(_REPO_ROOT) not in sys.path:
 
 _LOOKBACK = 100
 _N_CLASSES = 3
+_ARCHS = ("DeepLOB", "MLP", "CNN1", "CNN2", "LSTM")
+
+# Training settings from Zhang, Zohren & Roberts (2019) §IV: Adam with
+# epsilon 1 and learning rate 0.01, mini-batches of 32, and training stopped
+# once validation accuracy has not improved for 20 epochs.
+_LR = 0.01
+_ADAM_EPS = 1.0
+_BATCH_SIZE = 32
+_PATIENCE = 20
 _FEATURE_COLS = [f"f{i:02d}" for i in range(40)]
 _LABEL_COL = "label_k10"
 
@@ -50,7 +59,7 @@ try:
     )
     volume = modal.Volume.from_name("dl-research-data", create_if_missing=True)
 
-    @app.function(image=image, gpu="T4", volumes={"/data": volume}, timeout=3600)
+    @app.function(image=image, gpu="T4", volumes={"/data": volume}, timeout=4 * 3600)
     def train_remote(arch: str = "DeepLOB", max_epochs: int = 100,
                      resume_from: str | None = None) -> dict:
         import torch
@@ -72,15 +81,23 @@ try:
 
     @app.local_entrypoint()
     def main(arch: str = "DeepLOB", max_epochs: int = 100,
-             resume_from: str | None = None):
-        metrics = train_remote.remote(arch=arch, max_epochs=max_epochs,
-                                       resume_from=resume_from)
-        print(f"[train_deeplob] arch={arch} metrics={metrics}")
-        fname = f"{arch.lower()}_fi2010_k10.pt"
-        sidecar = f"{arch.lower()}_fi2010_k10.json"
-        print("To pull the checkpoint locally:")
-        print(f"  modal volume get dl-research-data /pretrained/{fname} ./data/pretrained/{fname}")
-        print(f"  modal volume get dl-research-data /pretrained/{sidecar} ./data/pretrained/{sidecar}")
+             resume_from: str | None = None, all_archs: bool = False):
+        if all_archs:
+            # One container per architecture, run in parallel.
+            archs = list(_ARCHS)
+            results = train_remote.starmap([(a, max_epochs, None) for a in archs])
+            for a, metrics in zip(archs, results):
+                print(f"[train_deeplob] arch={a} metrics={metrics}")
+        else:
+            archs = [arch]
+            metrics = train_remote.remote(arch=arch, max_epochs=max_epochs,
+                                           resume_from=resume_from)
+            print(f"[train_deeplob] arch={arch} metrics={metrics}")
+        print("To pull the checkpoints locally:")
+        for a in archs:
+            for ext in ("pt", "json"):
+                f = f"{a.lower()}_fi2010_k10.{ext}"
+                print(f"  modal volume get dl-research-data /pretrained/{f} ./data/pretrained/{f}")
 
 except ImportError:
     _MODAL_AVAILABLE = False
@@ -189,8 +206,7 @@ def train(
     torch.manual_seed(42)
     np.random.seed(42)
 
-    arch = arch
-    if arch not in ("DeepLOB", "MLP", "CNN1", "CNN2", "LSTM"):
+    if arch not in _ARCHS:
         raise ValueError(f"unknown arch {arch!r}")
 
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -214,7 +230,7 @@ def train(
     Xtr, ytr = Xtr[:-n_val], ytr[:-n_val]
     log.info("After val split: train=%d, val=%d", len(Xtr), len(Xva))
 
-    train_loader = DataLoader(_SeqDataset(Xtr, ytr), batch_size=64, shuffle=True)
+    train_loader = DataLoader(_SeqDataset(Xtr, ytr), batch_size=_BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(_SeqDataset(Xva, yva), batch_size=128, shuffle=False)
     test_loader = DataLoader(_SeqDataset(Xte, yte), batch_size=128, shuffle=False)
 
@@ -227,22 +243,27 @@ def train(
         log.info("Resuming from %s", resume_path)
         model.load_state_dict(torch.load(resume_path, map_location=device))
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    # Models output softmax (already normalized) — use NLLLoss on log of output
-    # OR convert to logits via log. Simpler: use CrossEntropyLoss on the
-    # pre-softmax logits. But our models APPLY softmax in forward(). We can
-    # use NLLLoss(log(out + eps)) to stay compatible.
+    # The canonical EarlyStopping only writes on improvement and never on its
+    # first call, so a checkpoint left by an earlier run would otherwise
+    # survive and be reloaded below as if it were this run's best.
+    final_path.unlink(missing_ok=True)
+
+    optimizer = optim.Adam(model.parameters(), lr=_LR, eps=_ADAM_EPS)
+    # The models apply softmax in forward(), so take NLL of the log output.
     EPS = 1e-9
 
     def loss_fn(out, target):
         return torch.nn.functional.nll_loss(torch.log(out + EPS), target)
 
-    early = EarlyStopping(savepath=str(final_path), patience=10,
-                          min_delta=1e-3, verbose=False)
+    # The paper stops on validation accuracy; EarlyStopping minimises, so it
+    # is fed the error rate.
+    early = EarlyStopping(savepath=str(final_path), patience=_PATIENCE,
+                          min_delta=1e-4, verbose=False)
 
     # ── Train loop ──────────────────────────────────────────────────
     epochs_run = 0
     val_loss_history: list[float] = []
+    val_acc_history: list[float] = []
     for epoch in range(max_epochs):
         epochs_run = epoch + 1
         model.train()
@@ -264,25 +285,34 @@ def train(
         model.eval()
         val_loss = 0.0
         n_val_batches = 0
+        n_correct = 0
         with torch.no_grad():
             for xb_seq, yb in val_loader:
                 xb_seq = xb_seq.to(device); yb = yb.to(device)
                 out = model(_shape_input(arch, xb_seq))
                 val_loss += float(loss_fn(out, yb))
+                n_correct += int((out.argmax(dim=1) == yb).sum())
                 n_val_batches += 1
         val_loss /= max(n_val_batches, 1)
+        val_acc = n_correct / max(len(yva), 1)
         val_loss_history.append(val_loss)
+        val_acc_history.append(val_acc)
 
-        log.info("epoch %d  train_loss=%.4f  val_loss=%.4f",
-                 epoch + 1, avg_train_loss, val_loss)
+        log.info("epoch %d  train_loss=%.4f  val_loss=%.4f  val_acc=%.4f",
+                 epoch + 1, avg_train_loss, val_loss, val_acc)
 
-        early(model, val_loss)
+        early(model, 1.0 - val_acc)
+        if epoch == 0:
+            # EarlyStopping takes the first epoch as its best without saving.
+            torch.save(model.state_dict(), final_path)
         if early.early_stop:
             log.info("Early stopping at epoch %d", epoch + 1)
             break
 
-    if not final_path.exists():
-        torch.save(model.state_dict(), final_path)
+    # Score the checkpoint that ships, i.e. the best validation epoch, not
+    # whatever weights the last epoch left in memory.
+    model.load_state_dict(torch.load(final_path, map_location=device))
+    best_epoch = int(np.argmax(val_acc_history)) + 1
 
     # ── Test metrics ────────────────────────────────────────────────
     from sklearn.metrics import (
@@ -303,9 +333,15 @@ def train(
     targets = np.concatenate(all_targets)
 
     acc = float(accuracy_score(targets, preds))
-    prec = float(precision_score(targets, preds, average="macro", zero_division=0))
-    rec = float(recall_score(targets, preds, average="macro", zero_division=0))
-    f1 = float(f1_score(targets, preds, average="macro", zero_division=0))
+    averaged = {
+        avg: (
+            float(precision_score(targets, preds, average=avg, zero_division=0)),
+            float(recall_score(targets, preds, average=avg, zero_division=0)),
+            float(f1_score(targets, preds, average=avg, zero_division=0)),
+        )
+        for avg in ("macro", "weighted")
+    }
+    prec, rec, f1 = averaged["macro"]
     cm = confusion_matrix(targets, preds, labels=[0, 1, 2])
 
     # ── Sidecar JSON per data-model §E3 ─────────────────────────────
@@ -323,18 +359,25 @@ def train(
         "data_range": {"train_days": [0], "test_days": [8, 9, 10]},
         "hyperparameters": {
             "lookback": _LOOKBACK,
-            "batch_size": 64,
-            "lr": 1e-3,
+            "batch_size": _BATCH_SIZE,
+            "lr": _LR,
+            "adam_eps": _ADAM_EPS,
             "epochs_trained": epochs_run,
-            "patience": 10,
-            "min_delta": 1e-3,
+            "best_epoch": best_epoch,
+            "patience": _PATIENCE,
+            "early_stopping_on": "val_accuracy",
+            "min_delta": 1e-4,
         },
         "final_metrics": {
-            "val_loss": val_loss_history[-1] if val_loss_history else None,
+            "val_accuracy": max(val_acc_history),
+            "val_loss": val_loss_history[best_epoch - 1],
             "test_accuracy": acc,
             "test_precision_macro": prec,
             "test_recall_macro": rec,
             "test_f1_macro": f1,
+            "test_precision_weighted": averaged["weighted"][0],
+            "test_recall_weighted": averaged["weighted"][1],
+            "test_f1_weighted": averaged["weighted"][2],
             "confusion_matrix": cm.tolist(),
         },
         "git_commit": os.environ.get("GIT_COMMIT", ""),

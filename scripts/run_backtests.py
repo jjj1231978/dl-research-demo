@@ -510,17 +510,44 @@ def _build_portfolio_panel(data_dir: Path, checkpoint_dir: Path):
 
 LOB_ARCHS = ("DeepLOB", "MLP", "CNN1", "CNN2", "LSTM")
 
-# Paper-reported numbers from Zhang et al. 2019 Table II (Setup 2, k=10).
-# These are surfaced in Tab 4 with a "(paper-reported)" badge for the
-# baselines we don't reproduce locally.
+# Zhang, Zohren & Roberts (2019) Table II, FI-2010 Setup 2, k=10, every row
+# as published (arXiv 1808.03668). The paper does not state how precision,
+# recall and F1 are averaged; its own DeepLOB rows have recall equal to
+# accuracy at every horizon, which only weighted averaging produces, while
+# the baseline rows are quoted from earlier papers. They are stored in the
+# *_weighted columns, with the macro columns left empty, and the page says
+# so. Accuracy is None where the paper gives none.
 LOB_PAPER_REPORTED = (
-    # (method, accuracy, precision, recall, f1)  — all percentages
-    ("SVM", 0.486, 0.491, 0.486, 0.487),
-    ("BoF", 0.572, 0.490, 0.460, 0.460),
-    ("MCSDA", 0.737, 0.460, 0.479, 0.467),
-    ("B(TABL)", 0.788, 0.789, 0.788, 0.785),
-    ("C(TABL)", 0.842, 0.851, 0.842, 0.844),
+    # (method, accuracy, precision, recall, f1) — fractions
+    ("SVM", None, 0.3962, 0.4492, 0.3588),
+    ("MLP", None, 0.4781, 0.6078, 0.4827),
+    ("CNN-I", None, 0.5098, 0.6554, 0.5521),
+    ("LSTM", None, 0.6077, 0.7592, 0.6633),
+    ("CNN-II", None, 0.5600, 0.4500, 0.4400),
+    ("B(TABL)", 0.7891, 0.6804, 0.7121, 0.6920),
+    ("C(TABL)", 0.8470, 0.7695, 0.7844, 0.7763),
+    ("DeepLOB", 0.8447, 0.8400, 0.8447, 0.8340),
 )
+
+
+def _lob_metric_row(method: str, yte, preds) -> dict:
+    """One reproduced row: accuracy, macro and weighted P/R/F1, 3x3 CM."""
+    from sklearn.metrics import (
+        accuracy_score, confusion_matrix, f1_score,
+        precision_score, recall_score,
+    )
+    row = {"method": method, "k": 10,
+           "accuracy": float(accuracy_score(yte, preds))}
+    for avg in ("macro", "weighted"):
+        row[f"precision_{avg}"] = float(precision_score(yte, preds, average=avg, zero_division=0))
+        row[f"recall_{avg}"] = float(recall_score(yte, preds, average=avg, zero_division=0))
+        row[f"f1_{avg}"] = float(f1_score(yte, preds, average=avg, zero_division=0))
+    row["source"] = "reproduced_here"
+    cm = confusion_matrix(yte, preds, labels=[0, 1, 2])
+    for i in range(3):
+        for j in range(3):
+            row[f"cm_{i}{j}"] = int(cm[i, j])
+    return row
 
 
 def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
@@ -528,10 +555,6 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
     import numpy as np
     import pandas as pd
     import torch
-    from sklearn.metrics import (
-        accuracy_score, confusion_matrix, f1_score,
-        precision_score, recall_score,
-    )
 
     from src.models.deeplob import (
         DeepLOB, LOBCNN_I, LOBCNN_II, LOBLSTM, LOBSimpleMLP,
@@ -583,20 +606,7 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
                 out = model(_shape_input(arch_name, xb))
                 preds.append(out.argmax(dim=1).numpy())
         preds = np.concatenate(preds)
-        cm = confusion_matrix(yte, preds, labels=[0, 1, 2])
-        row = {
-            "method": arch_name.lower(),
-            "k": 10,
-            "accuracy": float(accuracy_score(yte, preds)),
-            "precision_macro": float(precision_score(yte, preds, average="macro", zero_division=0)),
-            "recall_macro": float(recall_score(yte, preds, average="macro", zero_division=0)),
-            "f1_macro": float(f1_score(yte, preds, average="macro", zero_division=0)),
-            "source": "reproduced_here",
-        }
-        for i in range(3):
-            for j in range(3):
-                row[f"cm_{i}{j}"] = int(cm[i, j])
-        rows.append(row)
+        rows.append(_lob_metric_row(arch_name.lower(), yte, preds))
 
     # ── LDA classical (sklearn, no Modal) ───────────────────────────
     # LDA scales O(min(n,p)^3) and we have p = 100*40 = 4000 features, so
@@ -617,19 +627,7 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
     try:
         lda = fit_lda(Xtr_flat, ytr_sub)
         preds = predict_lda(lda, Xte_flat)
-        cm = confusion_matrix(yte, preds, labels=[0, 1, 2])
-        row = {
-            "method": "lda",
-            "k": 10,
-            "accuracy": float(accuracy_score(yte, preds)),
-            "precision_macro": float(precision_score(yte, preds, average="macro", zero_division=0)),
-            "recall_macro": float(recall_score(yte, preds, average="macro", zero_division=0)),
-            "f1_macro": float(f1_score(yte, preds, average="macro", zero_division=0)),
-            "source": "reproduced_here",
-        }
-        for i in range(3):
-            for j in range(3):
-                row[f"cm_{i}{j}"] = int(cm[i, j])
+        row = _lob_metric_row("lda", yte, preds)
         rows.append(row)
         log.info("LDA F1=%.3f", row["f1_macro"])
     except Exception as exc:  # noqa: BLE001
@@ -640,10 +638,13 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
         row = {
             "method": method.lower(),
             "k": 10,
-            "accuracy": acc,
-            "precision_macro": prec,
-            "recall_macro": rec,
-            "f1_macro": f1,
+            "accuracy": np.nan if acc is None else acc,
+            "precision_macro": np.nan,
+            "recall_macro": np.nan,
+            "f1_macro": np.nan,
+            "precision_weighted": prec,
+            "recall_weighted": rec,
+            "f1_weighted": f1,
             "source": "paper_reported",
         }
         for i in range(3):
@@ -654,7 +655,7 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
     if not rows:
         raise RuntimeError("No LOB rows produced.")
     out = pd.DataFrame(rows)
-    out = out.sort_values(["source", "f1_macro"], ascending=[True, False]).reset_index(drop=True)
+    out = out.sort_values(["source", "f1_weighted"], ascending=[True, False]).reset_index(drop=True)
     return out
 
 

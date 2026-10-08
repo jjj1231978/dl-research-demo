@@ -54,20 +54,27 @@ def _make_demo_parquet(path: Path) -> None:
 
 
 def _make_backtest_parquet(path: Path, reproduced: bool = False) -> None:
-    """A small lob_results.parquet — always 5 paper-reported, optionally
-    add 5 reproduced (with confusion-matrix cells) so Tab 4A has 6+ rows."""
+    """A small lob_results.parquet — always the 8 paper-reported Table II
+    rows (published figures in the weighted columns, macro left empty, as
+    run_backtests writes them), optionally plus 6 reproduced rows with
+    confusion-matrix cells so Tab 4A has 9+ rows."""
     rows = []
     paper = (
-        ("svm",     0.486, 0.491, 0.486, 0.487),
-        ("bof",     0.572, 0.490, 0.460, 0.460),
-        ("mcsda",   0.737, 0.460, 0.479, 0.467),
-        ("b(tabl)", 0.788, 0.789, 0.788, 0.785),
-        ("c(tabl)", 0.842, 0.851, 0.842, 0.844),
+        ("svm",     None,   0.3962, 0.4492, 0.3588),
+        ("mlp",     None,   0.4781, 0.6078, 0.4827),
+        ("cnn-i",   None,   0.5098, 0.6554, 0.5521),
+        ("lstm",    None,   0.6077, 0.7592, 0.6633),
+        ("cnn-ii",  None,   0.5600, 0.4500, 0.4400),
+        ("b(tabl)", 0.7891, 0.6804, 0.7121, 0.6920),
+        ("c(tabl)", 0.8470, 0.7695, 0.7844, 0.7763),
+        ("deeplob", 0.8447, 0.8400, 0.8447, 0.8340),
     )
     for m, a, p, r, f in paper:
         row = {
-            "method": m, "k": 10, "accuracy": a, "precision_macro": p,
-            "recall_macro": r, "f1_macro": f, "source": "paper_reported",
+            "method": m, "k": 10, "accuracy": np.nan if a is None else a,
+            "precision_macro": np.nan, "recall_macro": np.nan, "f1_macro": np.nan,
+            "precision_weighted": p, "recall_weighted": r, "f1_weighted": f,
+            "source": "paper_reported",
         }
         for i in range(3):
             for j in range(3):
@@ -80,7 +87,9 @@ def _make_backtest_parquet(path: Path, reproduced: bool = False) -> None:
             row = {
                 "method": m, "k": 10, "accuracy": f1 + 0.05,
                 "precision_macro": f1 + 0.02, "recall_macro": f1 + 0.01,
-                "f1_macro": f1, "source": "reproduced_here",
+                "f1_macro": f1, "precision_weighted": f1 + 0.08,
+                "recall_weighted": f1 + 0.05, "f1_weighted": f1 + 0.06,
+                "source": "reproduced_here",
             }
             for i in range(3):
                 for j in range(3):
@@ -251,7 +260,8 @@ def test_substrate_disclosure_visible(page_env):
     indirect=True,
 )
 def test_table_ii_has_six_plus_rows(page_env):
-    """Tab 4A renders a dataframe with ≥ 6 rows when both demo + ckpts present."""
+    """Tab 4A renders a Table II dataframe with ≥ 9 rows when both demo +
+    ckpts present (8 paper-reported + 1+ reproduced)."""
     at = _run_app()
     assert not at.exception, str([str(e) for e in at.exception])
     dfs = _all_dataframes(at)
@@ -267,10 +277,13 @@ def test_table_ii_has_six_plus_rows(page_env):
         f"Rendered df cols: "
         f"{[list(d.value.columns) if d.value is not None else None for d in dfs]}"
     )
-    assert len(table.value) >= 6, (
-        f"Table II has {len(table.value)} rows; expected ≥ 6 "
-        f"(5 paper-reported + 1+ reproduced)."
+    assert len(table.value) >= 9, (
+        f"Table II has {len(table.value)} rows; expected ≥ 9 "
+        f"(8 paper-reported + 1+ reproduced)."
     )
+    assert "DeepLOB" in set(table.value["Method"]) and \
+        "paper-reported" in set(table.value["Source"]), (
+        "the paper's own DeepLOB row must appear in Table II")
 
 
 @pytest.mark.parametrize(

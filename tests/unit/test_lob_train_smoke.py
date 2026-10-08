@@ -53,7 +53,7 @@ def test_train_runs_on_cpu_one_epoch_mlp(tmp_path: Path):
     )
 
     assert isinstance(metrics, dict)
-    for k in ("test_accuracy", "test_precision_macro",
+    for k in ("test_accuracy", "test_precision_macro", "test_f1_weighted",
               "test_recall_macro", "test_f1_macro"):
         assert k in metrics, f"missing {k!r} in return dict"
 

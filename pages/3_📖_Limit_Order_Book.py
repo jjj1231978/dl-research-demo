@@ -67,12 +67,12 @@ _ARCH_LABEL = {
     "deeplob": "DeepLOB",
     "mlp": "MLP",
     "cnn1": "CNN-I",
+    "cnn-i": "CNN-I",
     "cnn2": "CNN-II",
+    "cnn-ii": "CNN-II",
     "lstm": "LSTM",
     "lda": "LDA",
     "svm": "SVM",
-    "bof": "BoF",
-    "mcsda": "MCSDA",
     "b(tabl)": "B(TABL)",
     "c(tabl)": "C(TABL)",
 }
@@ -364,15 +364,30 @@ if not panel.empty:
     # deep architectures it also trains.
     _classical = _repro[_repro["method"].isin(("lda", "svm", "bof", "mcsda"))]
 
+    _paper_deep = panel[(panel["source"] == "paper_reported")
+                        & (panel["method"] == "deeplob") & (panel["k"] == 10)]
+
     if not _deep_row.empty and not _classical.empty:
-        _deep_f1 = float(_deep_row["f1_macro"].iloc[0])
-        _deep_acc = float(_deep_row["accuracy"].iloc[0])
+        _deep = _deep_row.iloc[0]
+        _deep_f1 = float(_deep["f1_macro"])
+        _deep_acc = float(_deep["accuracy"])
+        # The paper's own DeepLOB row has recall equal to accuracy at every
+        # horizon, which only weighted averaging produces, so the like-for-like
+        # comparison with the paper is on weighted F1. Older panels predate
+        # the weighted columns.
+        _deep_f1w = float(_deep["f1_weighted"]) if "f1_weighted" in _deep else float("nan")
+        _paper_f1w = (float(_paper_deep["f1_weighted"].iloc[0])
+                      if not _paper_deep.empty and "f1_weighted" in _paper_deep else float("nan"))
         _best_cls = _classical.nlargest(1, "f1_macro").iloc[0]
         st.markdown("## Result")
         stat_row([
+            ("DeepLOB F1, paper's convention",
+             f"{_deep_f1w * 100:.1f}%" if np.isfinite(_deep_f1w) else "—",
+             (f"paper reports {_paper_f1w * 100:.1f}% (weighted)"
+              if np.isfinite(_paper_f1w) else "weighted average")),
             ("DeepLOB macro-F1", f"{_deep_f1 * 100:.1f}%",
              f"accuracy {_deep_acc * 100:.1f}%"),
-            ("Best classical",
+            ("Best classical, macro-F1",
              f"{float(_best_cls['f1_macro']) * 100:.1f}%",
              _ARCH_LABEL.get(_best_cls["method"], _best_cls["method"])),
             ("Task", "3-class, k = 10",
@@ -396,9 +411,11 @@ if not panel.empty:
                                 hovermode="closest")
         plot(_fig_hero, height=260, key="lob_result_hero")
         st.caption(
-            "Macro-F1 across every architecture reproduced here. The paper's "
-            "own reported rows, and the per-class breakdown, are in Key "
-            "Results below."
+            "Macro-F1 across every architecture reproduced here: the stricter "
+            "view, giving the two rare classes equal weight with the 71% "
+            "stationary class. Key Results below sets each row against the "
+            "paper's Table II in the paper's own convention, with the "
+            "per-class breakdown."
         )
 
 
@@ -898,71 +915,89 @@ with tab4:
             st.markdown(
                 "**What Table II is in the paper.** The headline comparison "
                 "of Zhang, Zohren, Roberts (2019): one row per architecture "
-                "(SVM, BoF, MCSDA, B(TABL), C(TABL), DeepLOB, plus MLP / "
-                "CNN-I / CNN-II / LSTM baselines), four columns — Accuracy, "
-                "macro-Precision, macro-Recall, macro-F1 — on the FI-2010 "
-                "test set, **Setup 2** (train days 1–7, test days 8–10), at "
-                "**horizon k=10**. The argument it makes: DeepLOB and the "
-                "TABL family dominate the older SVM / BoF / MCSDA "
-                "baselines, validating that *spatial-temporal* "
-                "architectures (CNN over book depth, then LSTM over time) "
-                "are the right inductive bias for tick-scale LOB data.\n\n"
+                "(SVM, MLP, CNN-I, LSTM, CNN-II, B(TABL), C(TABL), DeepLOB), "
+                "four columns — Accuracy, Precision, Recall, F1 — on the "
+                "FI-2010 test set, **Setup 2** (train days 1–7, test days "
+                "8–10), at **horizon k=10**. The argument it makes: DeepLOB "
+                "and the TABL family dominate the earlier baselines, "
+                "validating that *spatial-temporal* architectures (CNN over "
+                "book depth, then LSTM over time) are the right inductive "
+                "bias for tick-scale LOB data.\n\n"
                 "**Replication target: Table II.** Rows tagged "
                 "`reproduced here` come from this repo's Modal-trained "
-                "checkpoints; `paper-reported` rows are taken verbatim "
-                "from Zhang et al. 2019 Table II."
+                "checkpoints; `paper-reported` rows are taken verbatim from "
+                "Zhang et al. 2019 Table II. The paper does not say how it "
+                "averages precision, recall and F1 over the three classes. "
+                "Its own DeepLOB rows have recall equal to accuracy at every "
+                "horizon, which only a **weighted** average produces, while "
+                "the baseline rows are quoted from earlier papers. The first "
+                "table therefore uses weighted averaging for the reproduced "
+                "rows, so the DeepLOB comparison is like for like; the second "
+                "gives the stricter macro view."
             )
             st.divider()
-            view = panel.copy()
-            view["Method"] = view["method"].apply(
-                lambda m: _ARCH_LABEL.get(m, m.upper())
-            )
-            view["Source"] = view["source"].map({
-                "reproduced_here": "reproduced here",
-                "paper_reported": "paper-reported",
-            })
-            view["Accuracy"] = (view["accuracy"] * 100).round(1)
-            view["Precision"] = (view["precision_macro"] * 100).round(1)
-            view["Recall"] = (view["recall_macro"] * 100).round(1)
-            view["F1"] = (view["f1_macro"] * 100).round(1)
-            display = view[["Method", "Source", "Accuracy",
-                              "Precision", "Recall", "F1"]]
-            display = display.sort_values("F1", ascending=False).reset_index(drop=True)
-            st.dataframe(display, hide_index=True, width="stretch")
+            def _table(avg: str) -> pd.DataFrame:
+                view = panel.copy()
+                for c in (f"precision_{avg}", f"recall_{avg}", f"f1_{avg}"):
+                    if c not in view:
+                        view[c] = np.nan
+                if avg == "macro":
+                    view = view[view["source"] == "reproduced_here"]
+                view["Method"] = view["method"].apply(
+                    lambda m: _ARCH_LABEL.get(m, m.upper()))
+                view["Source"] = view["source"].map({
+                    "reproduced_here": "reproduced here",
+                    "paper_reported": "paper-reported",
+                })
+                out = pd.DataFrame({
+                    "Method": view["Method"], "Source": view["Source"],
+                    "Accuracy": (view["accuracy"] * 100).round(1),
+                    "Precision": (view[f"precision_{avg}"] * 100).round(1),
+                    "Recall": (view[f"recall_{avg}"] * 100).round(1),
+                    "F1": (view[f"f1_{avg}"] * 100).round(1),
+                })
+                return out.sort_values("F1", ascending=False).reset_index(drop=True)
+
+            st.markdown("**Table II, paper's convention** — weighted "
+                        "Precision / Recall / F1 for reproduced rows; "
+                        "paper rows as published")
+            st.dataframe(_table("weighted"), hide_index=True, width="stretch")
             st.caption(
-                "All values × 100. Macro-averaged Precision / Recall / F1. "
-                "Best F1 row is at the top. Paper-reported entries are "
-                "from Zhang et al. 2019 Table II (Setup 2, k=10)."
+                "All values × 100; best F1 at the top; blank cells are "
+                "figures the paper does not give. Paper-reported entries "
+                "are Zhang et al. 2019 Table II, Setup 2, k=10."
             )
+            st.markdown("**Reproduced rows, macro averaging** — each class "
+                        "weighted equally, so the two rare classes count as "
+                        "much as the 71% stationary class")
+            st.dataframe(_table("macro"), hide_index=True, width="stretch")
             st.markdown(
-                "**What to look for.** The headline ordering on the "
-                "**reproduced** rows is `DeepLOB > CNN-II > CNN-I > LSTM "
-                ">> LDA > MLP` — exactly the ablation Zhang et al. argue "
-                "for. The conv stack carries most of the lift: dropping "
-                "the third (whole-book) conv block (CNN-II → CNN-I) loses "
-                "~10 F1 points, and removing convolutions entirely (MLP) "
-                "collapses below LDA because a fully-connected layer over "
-                "4000 raw features has no inductive bias for the "
-                "(time × depth × side) structure of the LOB. The "
-                "Inception module on top of the conv stack adds another "
-                "~2 F1 (DeepLOB vs CNN-II).\n\n"
-                "**Accuracy vs F1 gap.** Notice DeepLOB hits ~83% "
-                "accuracy but only ~71 macro-F1. That gap is the "
-                "fingerprint of the FI-2010 class imbalance — the test "
-                "set is ~70% *stationary*, so any model that defaults to "
-                "the middle class earns easy accuracy points while "
-                "macro-F1 still penalises the bad per-class recall. The "
-                "next two sub-tabs unpack exactly where those errors "
-                "land.\n\n"
-                "**Reproduction gap to paper.** Our DeepLOB row sits a "
-                "few F1 points below the paper-reported TABL family. "
-                "Plausible drivers: we trained one model per arch with a "
-                "fixed seed (no ensembling), our Modal T4 epoch budget "
-                "(~53 epochs, early-stopped) is shorter than the paper's "
-                "schedule, and we use the Kaggle "
-                "`praanj/limit-orderbook-data` redistribution which has "
-                "~394k ticks (vs ~4.3M in the original release) — see "
-                "the Substrate disclosure in Tab 1."
+                "**What to look for.** On the paper's convention the "
+                "reproduced DeepLOB lands within a couple of points of the "
+                "published row, so the headline result replicates. Of the "
+                "paper's ordering only `DeepLOB` on top is robust here: "
+                "the paper's own baselines have LSTM ahead of CNN-I, and "
+                "the baseline rows mix numbers from several earlier papers "
+                "with different training recipes, so their exact positions "
+                "should not be over-read. Compare the **reproduced** rows "
+                "with each other instead: same data, same split, same "
+                "training recipe.\n\n"
+                "**Accuracy vs macro-F1 gap.** DeepLOB reaches ~83% "
+                "accuracy but only ~71 macro-F1. That gap is the fingerprint "
+                "of the FI-2010 class imbalance: the test set is ~71% "
+                "*stationary*, so a model that leans on the middle class "
+                "earns easy accuracy while macro-F1 still charges it for the "
+                "weaker recall on *up* and *down*. The next two sections "
+                "show exactly where those errors land.\n\n"
+                "**Remaining gap to the paper.** The training recipe follows "
+                "§IV of the paper (Adam with ε = 1 and learning rate 0.01, "
+                "batches of 32, early stopping on validation accuracy with "
+                "patience 20), on the standard FI-2010 release used by the "
+                "paper's own code (254,750 training and 139,587 test "
+                "events). What differs: one run per architecture with a "
+                "fixed seed, the last 10% of the training days held out "
+                "for validation, and PyTorch rather than the paper's Keras "
+                "implementation."
             )
 
         with sub4b:
@@ -1001,7 +1036,7 @@ with tab4:
                         ])
                         st.markdown(
                             f"**{_ARCH_LABEL.get(row['method'], row['method'])}**"
-                            f" &nbsp; F1 = {row['f1_macro']:.2f}"
+                            f" &nbsp; macro-F1 = {row['f1_macro']:.2f}"
                         )
                         fig_cm = px.imshow(
                             cm, text_auto=True, aspect="auto",

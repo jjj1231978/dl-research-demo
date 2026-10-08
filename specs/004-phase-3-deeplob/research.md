@@ -180,9 +180,15 @@ For each (method, k) tuple:
 | Paper column | Source |
 |---|---|
 | Accuracy % | `sklearn.metrics.accuracy_score` × 100 |
-| Precision % | `precision_score(average='macro')` × 100 |
-| Recall % | `recall_score(average='macro')` × 100 |
-| F1 % | `f1_score(average='macro')` × 100 |
+| Precision % | `precision_score(average='weighted')` × 100 |
+| Recall % | `recall_score(average='weighted')` × 100 |
+| F1 % | `f1_score(average='weighted')` × 100 |
 
-Macro averaging matches the paper's footnote (equal weight to each of
-the 3 classes, accounting for the stationary class's higher prevalence).
+The paper has no footnote on averaging. Its DeepLOB rows have recall
+equal to accuracy at every horizon (84.47/84.47, 74.85/74.85,
+80.51/80.51), which only weighted averaging produces, so the
+like-for-like comparison is on weighted metrics. The baseline rows in
+Table II are quoted from earlier papers and their convention is unknown.
+Macro averaging (`average='macro'`) is computed and shown alongside as the
+stricter view; the panel carries both `*_macro` and `*_weighted` columns,
+with the paper's published figures stored in the weighted columns.
