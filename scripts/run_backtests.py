@@ -11,6 +11,11 @@ Future phases plug additional flags into the same script (e.g.,
 
 Pretrained checkpoints (mlp_sharpe.pt, lstm_sharpe.pt) are optional —
 if absent, the deep strategies are skipped with a clear warning.
+
+`--momentum` also writes `data/backtests/momentum_walkforward.parquet` when
+the walk-forward checkpoints ({mlp,lstm}_sharpe_wf{fold}.pt) are present:
+each fold's model trades only its own test window, stitched into one
+out-of-sample track record.
 """
 from __future__ import annotations
 
@@ -188,6 +193,70 @@ def _build_momentum_panel(data_dir: Path, checkpoint_dir: Path):
         ["strategy", "vol_scaling", "contract", "date"], kind="stable"
     ).reset_index(drop=True)
     return out
+
+
+def _build_momentum_walkforward_panel(data_dir: Path, checkpoint_dir: Path):
+    """Long panel [date, contract, strategy, fold, vol_scaling, daily_return].
+
+    Each walk-forward fold's model sets positions only inside its own test
+    window; the folds are stitched into one position panel before P&L and
+    vol targeting, so the series is continuous across retrains. Returns
+    None when any fold checkpoint is missing.
+    """
+    import pandas as pd
+
+    from src.data.futures import WALK_FORWARD_FOLDS, walk_forward_split
+    from src.strategies.vol_targeting import vol_target
+
+    panel = pd.read_parquet(data_dir / "cme_futures.parquet")
+    panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
+    wide = panel.pivot(index="date", columns="contract", values="price").sort_index()
+    rets = wide.pct_change(1)
+
+    fold_of_day = pd.Series(pd.NA, index=wide.index, dtype="Int64")
+    windows = {}
+    for fold in WALK_FORWARD_FOLDS:
+        _, _, start, end = walk_forward_split(fold)
+        sel = wide.index >= pd.Timestamp(start)
+        if end is not None:
+            sel &= wide.index < pd.Timestamp(end)
+        windows[fold] = sel
+        fold_of_day[sel] = fold
+
+    rows: list[pd.DataFrame] = []
+    for strategy in DEEP_STRATEGIES:
+        ckpts = {f: checkpoint_dir / f"{strategy}_wf{f}.pt" for f in WALK_FORWARD_FOLDS}
+        missing = [str(c) for c in ckpts.values() if not c.exists()]
+        if missing:
+            log.warning("Skipping walk-forward %s — missing %s. Train via "
+                        "`modal run src/training/train_deep_momentum.py "
+                        "--arch %s --walk-forward`.", strategy, missing,
+                        strategy.split("_")[0].upper())
+            return None
+        log.info("walk-forward backtest: %s", strategy)
+        pos = pd.DataFrame(index=wide.index, columns=wide.columns, dtype=float)
+        for fold, ckpt in ckpts.items():
+            fold_pos = _deep_position(strategy, wide, ckpt)
+            pos.loc[windows[fold]] = fold_pos.loc[windows[fold]]
+        pos.columns.name = "contract"
+        pos.index.name = "date"
+
+        pnl = pos.shift(1) * rets
+        for vol_scaling in (False, True):
+            scaled = vol_target(pnl, target_vol=0.15) if vol_scaling else pnl
+            stacked = scaled.stack().rename("daily_return").reset_index()
+            stacked = stacked.dropna(subset=["daily_return"])
+            stacked["strategy"] = strategy
+            stacked["fold"] = fold_of_day.reindex(stacked["date"]).to_numpy()
+            stacked["vol_scaling"] = vol_scaling
+            rows.append(stacked)
+
+    out = pd.concat(rows, ignore_index=True).dropna(subset=["fold"])
+    out["fold"] = out["fold"].astype(int)
+    out = out[["date", "contract", "strategy", "fold", "vol_scaling", "daily_return"]]
+    return out.sort_values(
+        ["strategy", "vol_scaling", "contract", "date"], kind="stable"
+    ).reset_index(drop=True)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -622,6 +691,14 @@ def main(argv: list[str] | None = None) -> int:
             f"{panel['strategy'].nunique()} strategies, "
             f"{panel['contract'].nunique()} contracts → {target}"
         )
+        wf = _build_momentum_walkforward_panel(data_dir, args.checkpoint_dir)
+        if wf is not None:
+            target = out_dir / "momentum_walkforward.parquet"
+            _atomic_write_parquet(wf, target)
+            print(
+                f"[run_backtests] momentum_walkforward.parquet: {len(wf)} rows, "
+                f"folds {sorted(wf['fold'].unique())} → {target}"
+            )
 
     if args.portfolio:
         panel = _build_portfolio_panel(data_dir, args.checkpoint_dir)

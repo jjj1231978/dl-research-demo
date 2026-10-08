@@ -23,7 +23,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.data import data_root, render_data_status_sidebar
-from src.data.futures import BCOM_ROOTS, TEST_START
+from src.data.futures import BCOM_ROOTS, TEST_START, walk_forward_split
 from src.metrics import report_metrics
 from src.models.deep_momentum import DeepMomentumLSTM, DeepMomentumMLP
 
@@ -781,6 +781,83 @@ with tab4:
                     "whether any Sharpe gain is coming from higher returns, "
                     "controlled vol, or both."
                 )
+
+        # Walk-forward: the fixed 2020 split above trains once and never
+        # learns from anything later. Here each model is retrained every
+        # three years on all data before its window, so every deep return in
+        # this section is out of sample. It ignores the date slider for that
+        # reason.
+        wf_panel = _load_backtest_panel(
+            str(_backtests_dir() / "momentum_walkforward.parquet"))
+        st.markdown("### Walk-forward: retrained every three years")
+        if wf_panel.empty:
+            st.info(
+                "No walk-forward panel yet. Train the fold models with "
+                "`modal run src/training/train_deep_momentum.py --arch MLP "
+                "--walk-forward` (and `--arch LSTM`), then run "
+                "`python scripts/run_backtests.py --momentum`."
+            )
+        else:
+            st.caption(
+                "Each fold's model is fit on all data up to two years before "
+                "its window, early-stopped on those two years, then trades "
+                "the next three years unseen. Classical signals are scored on "
+                "the same days. Follows the vol-scaling toggle; ignores the "
+                "date slider."
+            )
+
+            def _sharpe_on(daily: pd.Series) -> float:
+                d = daily.replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
+                if len(d) < 2 or np.std(d) == 0:
+                    return float("nan")
+                return float(report_metrics(d)["annual_sharpe"])
+
+            def _daily(frame: pd.DataFrame, key: str) -> pd.Series:
+                sub = frame[(frame["strategy"] == key)
+                            & (frame["vol_scaling"] == vol_scaling)]
+                return sub.groupby("date")["daily_return"].mean()
+
+            wf_daily = {lab: _daily(wf_panel, key) for lab, key in STRAT_ORDER
+                        if key in _DEEP_KEYS.values()}
+            ref_daily = {lab: _daily(backtest_panel_full, key)
+                         for lab, key in STRAT_ORDER if key in _REF_KEYS.values()}
+            fold_of_day = wf_panel.groupby("date")["fold"].first()
+
+            wf_rows = []
+            for fold in sorted(fold_of_day.unique()):
+                days = fold_of_day.index[fold_of_day == fold]
+                val_start, _train_end, _ts, _te = walk_forward_split(int(fold))
+                row = {
+                    "Trading window": f"{days.min().date()} to {days.max().date()}",
+                    "Model fit on": f"2010 to {val_start.year - 1}",
+                }
+                for lab, ser in {**wf_daily, **ref_daily}.items():
+                    row[lab] = _sharpe_on(ser.reindex(days))
+                wf_rows.append(row)
+            all_days = fold_of_day.index
+            wf_rows.append({
+                "Trading window": f"All folds, {all_days.min().date()} to "
+                                  f"{all_days.max().date()}",
+                "Model fit on": "retrained per fold",
+                **{lab: _sharpe_on(ser.reindex(all_days))
+                   for lab, ser in {**wf_daily, **ref_daily}.items()},
+            })
+            st.markdown("**Annualised Sharpe by fold**")
+            st.dataframe(pd.DataFrame(wf_rows).round(2), hide_index=True,
+                         width="stretch")
+
+            last_fold = int(fold_of_day.max())
+            last_days = fold_of_day.index[fold_of_day == last_fold]
+            st.markdown(f"**Latest fold, {last_days.min().date()} to "
+                        f"{last_days.max().date()}**: cumulative return")
+            wf_fig = go.Figure()
+            for lab, ser in {**ref_daily, **wf_daily}.items():
+                d = ser.reindex(last_days).fillna(0.0)
+                wf_fig.add_trace(go.Scatter(x=d.index, y=(1 + d).cumprod().values,
+                                            mode="lines", name=lab))
+            series_by_role(wf_fig, _STRATEGY_ROLES)
+            wf_fig.update_layout(yaxis_type="log")
+            plot(wf_fig, height=400, key="mom_walkforward")
 
 
 # ──────────────────────────────────────────────────────────────────────

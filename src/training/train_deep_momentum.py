@@ -57,7 +57,8 @@ try:
 
     @app.function(image=image, gpu="T4", volumes={"/data": volume}, timeout=3600)
     def train_remote(arch: str = "MLP", max_epochs: int = 200,
-                     resume_from: str | None = None) -> dict:
+                     resume_from: str | None = None,
+                     fold: int | None = None) -> dict:
         import torch
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         metrics = train(
@@ -68,6 +69,7 @@ try:
             max_epochs=max_epochs,
             resume_from=resume_from,
             modal_image_id=_modal_image_id_or_local(),
+            fold=fold,
         )
         # Commit so a preemption doesn't lose the final checkpoint
         try:
@@ -78,18 +80,27 @@ try:
 
     @app.local_entrypoint()
     def main(arch: str = "MLP", max_epochs: int = 200,
-             resume_from: str | None = None):
-        metrics = train_remote.remote(
-            arch=arch, max_epochs=max_epochs, resume_from=resume_from,
-        )
-        print(f"[train_deep_momentum] arch={arch} metrics={metrics}")
-        fname = f"{arch.lower()}_sharpe.pt"
-        sidecar = f"{arch.lower()}_sharpe.json"
-        print("To pull the checkpoint locally:")
-        print(f"  modal volume get dl-research-data /pretrained/{fname} "
-              f"./data/pretrained/{fname}")
-        print(f"  modal volume get dl-research-data /pretrained/{sidecar} "
-              f"./data/pretrained/{sidecar}")
+             resume_from: str | None = None, walk_forward: bool = False):
+        if walk_forward:
+            # One container per fold, run in parallel.
+            from src.data.futures import WALK_FORWARD_FOLDS
+            stems = [_checkpoint_stem(arch, f) for f in WALK_FORWARD_FOLDS]
+            results = train_remote.starmap(
+                [(arch, max_epochs, None, f) for f in WALK_FORWARD_FOLDS]
+            )
+            for f, metrics in zip(WALK_FORWARD_FOLDS, results):
+                print(f"[train_deep_momentum] arch={arch} fold={f} metrics={metrics}")
+        else:
+            metrics = train_remote.remote(
+                arch=arch, max_epochs=max_epochs, resume_from=resume_from,
+            )
+            print(f"[train_deep_momentum] arch={arch} metrics={metrics}")
+            stems = [_checkpoint_stem(arch, None)]
+        print("To pull the checkpoints locally:")
+        for stem in stems:
+            for ext in ("pt", "json"):
+                print(f"  modal volume get dl-research-data /pretrained/{stem}.{ext} "
+                      f"./data/pretrained/{stem}.{ext}")
 
 except ImportError:
     _MODAL_AVAILABLE = False
@@ -110,6 +121,12 @@ def _modal_image_id_or_local() -> str:
 
 
 # ─── Bottom: device-agnostic training body ────────────────────────────
+
+
+def _checkpoint_stem(arch: str, fold: int | None) -> str:
+    """`mlp_sharpe` for the fixed-split model, `mlp_sharpe_wf2023` for a fold."""
+    stem = f"{arch.lower()}_sharpe"
+    return stem if fold is None else f"{stem}_wf{fold}"
 
 # L2 penalty on all weights; with the MLP's dropout this keeps the network
 # from memorising the training years.
@@ -239,15 +256,27 @@ def train(
     max_epochs: int = 200,
     resume_from: str | None = None,
     modal_image_id: str | None = None,
+    fold: int | None = None,
 ) -> dict[str, float]:
-    """Device-agnostic training loop. Importable on CPU; runs unchanged on GPU."""
+    """Device-agnostic training loop. Importable on CPU; runs unchanged on GPU.
+
+    ``fold`` selects a walk-forward fold (its test-window start year, see
+    ``src.data.futures.walk_forward_split``) and writes
+    ``{arch}_sharpe_wf{fold}.pt``. Without it the fixed 2020 split is used.
+    """
     import numpy as np
     import pandas as pd
     import torch
     import torch.optim as optim
     from torch.utils.data import DataLoader
 
-    from src.data.futures import TRAIN_END, TRAIN_START, TEST_START, VAL_START
+    from src.data.futures import (
+        TEST_START,
+        TRAIN_END,
+        TRAIN_START,
+        VAL_START,
+        walk_forward_split,
+    )
     from src.early_stopper import EarlyStopping
     from src.losses import Neg_Sharpe  # canonical per Principle V
     from src.models.deep_momentum import DeepMomentumLSTM, DeepMomentumMLP
@@ -259,9 +288,16 @@ def train(
     if arch not in ("MLP", "LSTM"):
         raise ValueError(f"arch must be 'MLP' or 'LSTM'; got {arch!r}")
 
+    if fold is None:
+        val_start, train_end, test_start, test_end = (
+            VAL_START, TRAIN_END, TEST_START, None)
+    else:
+        val_start, train_end, test_start, test_end = walk_forward_split(fold)
+
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    final_path = checkpoint_dir / f"{arch.lower()}_sharpe.pt"
-    sidecar_path = checkpoint_dir / f"{arch.lower()}_sharpe.json"
+    stem = _checkpoint_stem(arch, fold)
+    final_path = checkpoint_dir / f"{stem}.pt"
+    sidecar_path = checkpoint_dir / f"{stem}.json"
 
     # ── Data ────────────────────────────────────────────────────────
     parquet_path = data_dir / "cme_futures.parquet"
@@ -275,9 +311,11 @@ def train(
     # ~312 days of each split to the 252-day horizon + 60-day window warm-up.
     X, y, m, dates, _contracts = _build_per_day_features(panel)
     dates = pd.to_datetime(dates)
-    in_train = dates < pd.Timestamp(VAL_START)
-    in_val = (dates >= pd.Timestamp(VAL_START)) & (dates <= pd.Timestamp(TRAIN_END))
-    in_test = dates >= pd.Timestamp(TEST_START)
+    in_train = dates < pd.Timestamp(val_start)
+    in_val = (dates >= pd.Timestamp(val_start)) & (dates <= pd.Timestamp(train_end))
+    in_test = dates >= pd.Timestamp(test_start)
+    if test_end is not None:
+        in_test &= dates < pd.Timestamp(test_end)
     # A sample's target is the NEXT day's return, so the last sample of the
     # train and val segments would be scored on the first day of the segment
     # after it. Drop those two boundary samples.
@@ -288,12 +326,13 @@ def train(
     if not (in_train.any() and in_val.any() and in_test.any()):
         raise ValueError(
             f"Empty split: train={in_train.sum()} val={in_val.sum()} "
-            f"test={in_test.sum()} days. Train is {TRAIN_START}..{VAL_START} "
-            f"(exclusive), val {VAL_START}..{TRAIN_END}, test {TEST_START}+."
+            f"test={in_test.sum()} days. Train is {TRAIN_START}..{val_start} "
+            f"(exclusive), val {val_start}..{train_end}, test {test_start}"
+            f"..{test_end or 'end'}."
         )
-    log.info("Days: train=%d (%s → %s), val=%d (%s → %s), test=%d (%s → ...)",
-             in_train.sum(), TRAIN_START, VAL_START, in_val.sum(), VAL_START,
-             TRAIN_END, in_test.sum(), TEST_START)
+    log.info("Days: train=%d (%s → %s), val=%d (%s → %s), test=%d (%s → %s)",
+             in_train.sum(), TRAIN_START, val_start, in_val.sum(), val_start,
+             train_end, in_test.sum(), test_start, test_end or "end")
 
     def _loader(sel, shuffle):
         return DataLoader(_DailyPortfolioDataset(X[sel], y[sel], m[sel]),
@@ -416,12 +455,13 @@ def train(
         "arch": arch,
         "data_range": {
             "train_start": TRAIN_START.isoformat(),
-            "val_start": VAL_START.isoformat(),
-            "train_end": TRAIN_END.isoformat(),
-            "test_start": TEST_START.isoformat(),
-            "test_end": panel["date"].max().date().isoformat(),
+            "val_start": val_start.isoformat(),
+            "train_end": train_end.isoformat(),
+            "test_start": test_start.isoformat(),
+            "test_end": (dates[in_test].max().date().isoformat()),
         },
-        "split": "chronological_train_val_test",
+        "split": ("chronological_train_val_test" if fold is None
+                  else f"walk_forward_fold_{fold}"),
         "hyperparameters": {
             "hidden_size": model.hidden_size,
             "lr": 1e-3,
@@ -465,6 +505,9 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("--arch", choices=["MLP", "LSTM"], default="MLP")
     parser.add_argument("--max-epochs", type=int, default=200)
     parser.add_argument("--resume-from", type=str, default=None)
+    parser.add_argument("--fold", type=int, default=None,
+                        help="Walk-forward fold (test-window start year, e.g. "
+                             "2023). Default: the fixed 2020 split.")
     parser.add_argument("--data-dir", type=Path, default=None,
                         help="Where to read cme_futures.parquet from. "
                              "Default: data_root() (honours DEEP_FINANCE_DATA_DIR).")
@@ -493,6 +536,7 @@ def _cpu_main(argv: list[str] | None = None) -> int:
         checkpoint_dir=args.checkpoint_dir,
         max_epochs=args.max_epochs,
         resume_from=args.resume_from,
+        fold=args.fold,
     )
     print(f"[train_deep_momentum] arch={args.arch} metrics={metrics}")
     return 0

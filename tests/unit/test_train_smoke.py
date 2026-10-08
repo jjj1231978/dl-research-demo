@@ -130,3 +130,40 @@ def test_reported_test_sharpe_is_from_saved_checkpoint(tmp_path: Path):
     expected = port.mean() / port.std() * np.sqrt(252)
 
     assert metrics["test_annual_sharpe"] == pytest.approx(expected, rel=1e-4)
+
+
+def test_walk_forward_split_schedule():
+    """Folds tile the test period with no gaps, and each fold's validation
+    slice ends the day before its test window opens."""
+    import datetime as dt
+
+    from src.data.futures import WALK_FORWARD_FOLDS, walk_forward_split
+
+    splits = [walk_forward_split(f) for f in WALK_FORWARD_FOLDS]
+    for (val_start, train_end, test_start, _), fold in zip(splits, WALK_FORWARD_FOLDS):
+        assert val_start < train_end < test_start == dt.date(fold, 1, 1)
+        assert test_start - train_end == dt.timedelta(days=1)
+    for (_, _, _, end), (_, _, next_start, _) in zip(splits, splits[1:]):
+        assert end == next_start
+    assert splits[-1][3] is None  # the last fold runs to the end of the data
+    with pytest.raises(ValueError):
+        walk_forward_split(2021)
+
+
+def test_train_fold_writes_fold_checkpoint(tmp_path: Path):
+    import json
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    ckpt_dir = tmp_path / "pretrained"
+    _make_tiny_cme_parquet(data_dir / "cme_futures.parquet")
+
+    train(data_dir=data_dir, arch="MLP", device=torch.device("cpu"),
+          checkpoint_dir=ckpt_dir, max_epochs=1, fold=2020)
+
+    assert (ckpt_dir / "mlp_sharpe_wf2020.pt").exists()
+    assert not (ckpt_dir / "mlp_sharpe.pt").exists()
+    sidecar = json.loads((ckpt_dir / "mlp_sharpe_wf2020.json").read_text())
+    assert sidecar["split"] == "walk_forward_fold_2020"
+    assert sidecar["data_range"]["val_start"] == "2018-01-01"
+    assert sidecar["data_range"]["test_end"] < "2023-01-01"
