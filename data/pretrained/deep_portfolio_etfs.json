@@ -1,5 +1,5 @@
 {
-  "trained_on": "2026-05-17",
+  "trained_on": "2026-10-08",
   "trained_with": "Modal T4 (image im-hDB3ZNSrvLxbISTHCVcCUI)",
   "torch_version": "2.12.0+cu130",
   "modal_app": "deep-finance-train-portfolio",
@@ -7,27 +7,29 @@
   "universe": "etfs",
   "n_assets": 4,
   "data_range": {
-    "train_start": "2011-01-03",
+    "train_start": "2011-03-18",
+    "val_start": "2018-01-01",
     "train_end": "2019-12-31",
     "test_start": "2020-01-01",
     "test_end": "2026-05-15"
   },
-  "split": "chronological_test_2020",
+  "split": "chronological_train_val_test",
   "hyperparameters": {
     "hidden_size": 64,
     "lr": 0.001,
     "batch_size_days": 32,
-    "epochs_trained": 28,
+    "epochs_trained": 70,
+    "best_epoch": 45,
     "patience": 25,
     "min_delta": 0.0001,
     "lookback": 50,
     "aggregation": "per_day_portfolio_sum"
   },
   "final_metrics": {
-    "val_neg_sharpe": -0.05309802293777466,
-    "test_annual_sharpe": 0.843177210678104,
-    "test_max_drawdown": 0.21700483560562134,
-    "test_calmar": 0.4306622543474714
+    "val_neg_sharpe": -0.05727427080273628,
+    "test_annual_sharpe": 0.2555131169498559,
+    "test_max_drawdown": 0.1957278847694397,
+    "test_calmar": 0.0981473808480914
   },
   "git_commit": ""
 }

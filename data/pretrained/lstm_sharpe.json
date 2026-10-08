@@ -1,21 +1,25 @@
 {
-  "trained_on": "2026-05-17",
+  "trained_on": "2026-10-08",
   "trained_with": "Modal T4 (image im-hDB3ZNSrvLxbISTHCVcCUI)",
   "torch_version": "2.12.0+cu130",
   "modal_app": "deep-finance-train-momentum",
   "arch": "LSTM",
   "data_range": {
     "train_start": "2010-06-06",
+    "val_start": "2018-01-01",
     "train_end": "2019-12-31",
     "test_start": "2020-01-01",
     "test_end": "2026-05-04"
   },
-  "split": "chronological_60_40",
+  "split": "chronological_train_val_test",
   "hyperparameters": {
     "hidden_size": 10,
     "lr": 0.001,
     "batch_size_days": 32,
-    "epochs_trained": 30,
+    "epochs_trained": 46,
+    "best_epoch": 21,
+    "weight_decay": 0.0001,
+    "dropout": 0.0,
     "patience": 25,
     "min_delta": 0.0001,
     "seq_length": 60,
@@ -23,10 +27,10 @@
     "aggregation": "per_day_portfolio_mean"
   },
   "final_metrics": {
-    "val_neg_sharpe": -0.01354785542935133,
-    "test_annual_sharpe": 0.21513250791205094,
-    "test_max_drawdown": 0.03188532590866089,
-    "test_calmar": 0.10914782072872845
+    "val_neg_sharpe": -0.025368250906467438,
+    "test_annual_sharpe": -0.12196985508759442,
+    "test_max_drawdown": 0.09512591361999512,
+    "test_calmar": -0.045961037593574866
   },
   "git_commit": ""
 }
