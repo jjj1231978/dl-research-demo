@@ -35,12 +35,17 @@ _LOOKBACK = 100
 _N_CLASSES = 3
 _ARCHS = ("DeepLOB", "MLP", "CNN1", "CNN2", "LSTM")
 
-# Training settings from Zhang, Zohren & Roberts (2019) §IV: Adam with
-# epsilon 1 and learning rate 0.01, mini-batches of 32, and training stopped
-# once validation accuracy has not improved for 20 epochs.
-_LR = 0.01
-_ADAM_EPS = 1.0
-_BATCH_SIZE = 32
+# Zhang, Zohren & Roberts (2019) §IV train with Adam at learning rate 0.01
+# and epsilon 1, batches of 32, stopping once validation accuracy has not
+# improved for 20 epochs. That optimiser setting was tried here (2026-10-07)
+# and every architecture sat on the 70.7% majority-class plateau until
+# patience ran out: with epsilon 1 the Adam step is roughly lr times the raw
+# gradient, which is tiny for this loss. Standard Adam at 1e-3 reaches the
+# paper's accuracy, so the optimiser is the usual one and only the
+# early-stopping rule follows the paper.
+_LR = 1e-3
+_ADAM_EPS = 1e-8
+_BATCH_SIZE = 64
 _PATIENCE = 20
 _FEATURE_COLS = [f"f{i:02d}" for i in range(40)]
 _LABEL_COL = "label_k10"
