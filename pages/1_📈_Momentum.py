@@ -304,8 +304,11 @@ if not _result_panel.empty:
         _res.update_layout(yaxis_type="log")
         plot(_res, height=300, key="mom_result_hero")
         st.caption(
-            "Cumulative return, log scale. The full five-strategy comparison "
-            "across all four paper exhibits is in Key Results below."
+            "Cumulative return, log scale, for a single model trained once on "
+            "2010–2017. The full five-strategy comparison across all four "
+            "paper exhibits is in Key Results below, along with a "
+            "**walk-forward** version where the models are retrained every "
+            "three years."
         )
 
 
@@ -846,18 +849,44 @@ with tab4:
             st.dataframe(pd.DataFrame(wf_rows).round(2), hide_index=True,
                          width="stretch")
 
-            last_fold = int(fold_of_day.max())
-            last_days = fold_of_day.index[fold_of_day == last_fold]
-            st.markdown(f"**Latest fold, {last_days.min().date()} to "
-                        f"{last_days.max().date()}**: cumulative return")
-            wf_fig = go.Figure()
-            for lab, ser in {**ref_daily, **wf_daily}.items():
-                d = ser.reindex(last_days).fillna(0.0)
-                wf_fig.add_trace(go.Scatter(x=d.index, y=(1 + d).cumprod().values,
-                                            mode="lines", name=lab))
-            series_by_role(wf_fig, _STRATEGY_ROLES)
-            wf_fig.update_layout(yaxis_type="log")
-            plot(wf_fig, height=400, key="mom_walkforward")
+            # One equity curve per episode, each restarting at 1.0 on the day
+            # its freshly retrained model takes over.
+            st.markdown("**Cumulative return by episode** — each panel restarts "
+                        "at 1.0 when its retrained model takes over")
+            folds = sorted(int(f) for f in fold_of_day.unique())
+            cols = st.columns(len(folds))
+            for col, fold in zip(cols, folds):
+                days = fold_of_day.index[fold_of_day == fold]
+                val_start, _train_end, _ts, _te = walk_forward_split(fold)
+                wf_fig = go.Figure()
+                for lab, ser in {**ref_daily, **wf_daily}.items():
+                    d = ser.reindex(days).fillna(0.0)
+                    wf_fig.add_trace(go.Scatter(
+                        x=d.index, y=(1 + d).cumprod().values,
+                        mode="lines", name=lab, legendgroup=lab,
+                        showlegend=(fold == folds[0]),
+                    ))
+                series_by_role(wf_fig, _STRATEGY_ROLES)
+                wf_fig.update_layout(
+                    yaxis_type="log",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                xanchor="left", x=0),
+                )
+                with col:
+                    st.markdown(
+                        f"**{days.min().year}–{days.max().year}** · model fit "
+                        f"on 2010–{val_start.year - 1}"
+                    )
+                    plot(wf_fig, height=360, key=f"mom_walkforward_{fold}")
+            st.markdown(
+                "**What to look for**: The retrained models only lead in "
+                "2017–2019, a choppy market with no sustained trend. In both "
+                "strong-trend windows (2020–2022 and 2023 onward) Long Only "
+                "and the classical signals finish ahead. Retraining through "
+                "2020 does lift the deep models from roughly zero to about "
+                "0.3 Sharpe in the latest episode, but not past the simple "
+                "benchmarks."
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────
