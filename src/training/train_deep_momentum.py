@@ -111,6 +111,10 @@ def _modal_image_id_or_local() -> str:
 
 # ─── Bottom: device-agnostic training body ────────────────────────────
 
+# L2 penalty on all weights; with the MLP's dropout this keeps the network
+# from memorising the training years.
+WEIGHT_DECAY = 1e-4
+
 
 def _build_per_day_features(panel, min_active_contracts: int = 5) -> tuple:
     """Build per-day feature tensors for the Sharpe-loss training objective.
@@ -243,7 +247,7 @@ def train(
     import torch.optim as optim
     from torch.utils.data import DataLoader
 
-    from src.data.futures import TRAIN_END, TRAIN_START, TEST_START
+    from src.data.futures import TRAIN_END, TRAIN_START, TEST_START, VAL_START
     from src.early_stopper import EarlyStopping
     from src.losses import Neg_Sharpe  # canonical per Principle V
     from src.models.deep_momentum import DeepMomentumLSTM, DeepMomentumMLP
@@ -265,26 +269,40 @@ def train(
     panel = pd.read_parquet(parquet_path)
     panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
 
-    train_panel = panel[panel["date"] <= pd.Timestamp(TRAIN_END)]
-    test_panel = panel[panel["date"] >= pd.Timestamp(TEST_START)]
-    log.info("Train rows: %d (%s → %s); test rows: %d (%s → ...)",
-             len(train_panel), TRAIN_START, TRAIN_END,
-             len(test_panel), TEST_START)
+    # Features look only backwards, so they are built once over the whole
+    # panel (as scripts/run_backtests.py does) and the samples are then split
+    # by date. Building them per split instead would throw away the first
+    # ~312 days of each split to the 252-day horizon + 60-day window warm-up.
+    X, y, m, dates, _contracts = _build_per_day_features(panel)
+    dates = pd.to_datetime(dates)
+    in_train = dates < pd.Timestamp(VAL_START)
+    in_val = (dates >= pd.Timestamp(VAL_START)) & (dates <= pd.Timestamp(TRAIN_END))
+    in_test = dates >= pd.Timestamp(TEST_START)
+    # A sample's target is the NEXT day's return, so the last sample of the
+    # train and val segments would be scored on the first day of the segment
+    # after it. Drop those two boundary samples.
+    for seg in (in_train, in_val):
+        idx = np.flatnonzero(seg)
+        if len(idx):
+            seg[idx[-1]] = False
+    if not (in_train.any() and in_val.any() and in_test.any()):
+        raise ValueError(
+            f"Empty split: train={in_train.sum()} val={in_val.sum()} "
+            f"test={in_test.sum()} days. Train is {TRAIN_START}..{VAL_START} "
+            f"(exclusive), val {VAL_START}..{TRAIN_END}, test {TEST_START}+."
+        )
+    log.info("Days: train=%d (%s → %s), val=%d (%s → %s), test=%d (%s → ...)",
+             in_train.sum(), TRAIN_START, VAL_START, in_val.sum(), VAL_START,
+             TRAIN_END, in_test.sum(), TEST_START)
 
-    Xtr, ytr, mtr, _dates_tr, _ct_tr = _build_per_day_features(train_panel)
-    Xte, yte, mte, _dates_te, _ct_te = _build_per_day_features(test_panel)
-    log.info(
-        "Train tensors: X=%s y=%s mask=%s (≈%.1f active contracts/day); "
-        "test: X=%s y=%s",
-        Xtr.shape, ytr.shape, mtr.shape, float(mtr.sum(axis=1).mean()),
-        Xte.shape, yte.shape,
-    )
+    def _loader(sel, shuffle):
+        return DataLoader(_DailyPortfolioDataset(X[sel], y[sel], m[sel]),
+                          batch_size=32, shuffle=shuffle)
 
-    train_ds = _DailyPortfolioDataset(Xtr, ytr, mtr)
-    test_ds = _DailyPortfolioDataset(Xte, yte, mte)
-    # Batch size in days. ~2300 train days / 32 ≈ 70 batches/epoch.
-    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
+    # Batch size in days. ~1800 train days / 32 ≈ 57 batches/epoch.
+    train_loader = _loader(in_train, shuffle=True)
+    val_loader = _loader(in_val, shuffle=False)
+    test_loader = _loader(in_test, shuffle=False)
 
     # ── Model ───────────────────────────────────────────────────────
     if arch == "MLP":
@@ -300,7 +318,13 @@ def train(
         log.info("Resuming from %s", resume_path)
         model.load_state_dict(torch.load(resume_path, map_location=device))
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    # The canonical EarlyStopping only writes on improvement and never on its
+    # first call, so a checkpoint left by an earlier run would otherwise
+    # survive and be reloaded below as if it were this run's best.
+    final_path.unlink(missing_ok=True)
+
+    optimizer = optim.Adam(model.parameters(), lr=1e-3,
+                           weight_decay=WEIGHT_DECAY)
     early = EarlyStopping(savepath=str(final_path), patience=25,
                           min_delta=1e-4, verbose=False)
 
@@ -336,13 +360,14 @@ def train(
             n_batches += 1
         avg_train_loss = total_train_loss / max(n_batches, 1)
 
-        # Validation: re-use the test set as val. We compute Neg_Sharpe
-        # over the FULL test-window portfolio series for early-stopping
-        # signal stability (per-batch test Sharpe is noisy).
+        # Validation on the held-out end of the training window. Neg_Sharpe
+        # over the FULL validation series for early-stopping signal
+        # stability (per-batch Sharpe is noisy). The test window is never
+        # looked at until the final scoring below.
         model.eval()
         with torch.no_grad():
             port_segments = []
-            for xb, yb, mb in test_loader:
+            for xb, yb, mb in val_loader:
                 xb = xb.to(device); yb = yb.to(device); mb = mb.to(device)
                 port_segments.append(_portfolio_returns(xb, yb, mb))
             port_full = torch.cat(port_segments)
@@ -353,13 +378,17 @@ def train(
                  epoch + 1, avg_train_loss, val_neg_sharpe)
 
         early(model, val_neg_sharpe)
+        if epoch == 0:
+            # EarlyStopping takes the first epoch as its best without saving.
+            torch.save(model.state_dict(), final_path)
         if early.early_stop:
             log.info("Early stopping at epoch %d", epoch + 1)
             break
 
-    # EarlyStopping only writes on improvement → backstop with a final save.
-    if not final_path.exists():
-        torch.save(model.state_dict(), final_path)
+    # Score the checkpoint that ships, i.e. the best validation epoch, not
+    # whatever weights the last epoch left in memory.
+    model.load_state_dict(torch.load(final_path, map_location=device))
+    best_epoch = int(np.argmin(val_loss_history)) + 1
 
     # ── Final test metrics on the per-day portfolio return series ───
     model.eval()
@@ -387,16 +416,20 @@ def train(
         "arch": arch,
         "data_range": {
             "train_start": TRAIN_START.isoformat(),
+            "val_start": VAL_START.isoformat(),
             "train_end": TRAIN_END.isoformat(),
             "test_start": TEST_START.isoformat(),
             "test_end": panel["date"].max().date().isoformat(),
         },
-        "split": "chronological_60_40",
+        "split": "chronological_train_val_test",
         "hyperparameters": {
             "hidden_size": model.hidden_size,
             "lr": 1e-3,
             "batch_size_days": 32,
             "epochs_trained": epochs_run,
+            "best_epoch": best_epoch,
+            "weight_decay": WEIGHT_DECAY,
+            "dropout": getattr(getattr(model, "dropout", None), "p", 0.0),
             "patience": 25,
             "min_delta": 1e-4,
             "seq_length": 60,
@@ -404,7 +437,7 @@ def train(
             "aggregation": "per_day_portfolio_mean",
         },
         "final_metrics": {
-            "val_neg_sharpe": val_loss_history[-1] if val_loss_history else None,
+            "val_neg_sharpe": min(val_loss_history),
             "test_annual_sharpe": test_annual_sharpe,
             "test_max_drawdown": test_mdd,
             "test_calmar": test_calmar,

@@ -34,6 +34,11 @@ class DeepMomentumMLP(nn.Module):
             CLI; the actual hidden cascade is fixed at (64, 32) per
             brief §13.3. The disclosed paper hidden size is ~20 — Tab 3
             model card surfaces the discrepancy.
+        dropout: rate applied to the flattened input and to each hidden
+            layer during training. Without it the 480-input network
+            memorises the training years (in-sample Sharpe above 10, flat
+            out of sample). Kept out of ``self.net`` so the state-dict keys
+            are unchanged and older checkpoints still load.
     """
 
     def __init__(
@@ -41,11 +46,13 @@ class DeepMomentumMLP(nn.Module):
         seq_length: int = 60,
         n_features: int = 8,
         hidden_size: int = 20,
+        dropout: float = 0.3,
     ) -> None:
         super().__init__()
         self.seq_length = seq_length
         self.n_features = n_features
         self.hidden_size = hidden_size
+        self.dropout = nn.Dropout(dropout)
         in_dim = seq_length * n_features
         self.net = nn.Sequential(
             nn.Flatten(),
@@ -59,7 +66,11 @@ class DeepMomentumMLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """x: (batch, seq_length, n_features) → (batch, 1) in (-1, +1)."""
-        return self.net(x)
+        flatten, fc1, act1, fc2, act2, fc3, out = self.net
+        h = self.dropout(flatten(x))
+        h = self.dropout(act1(fc1(h)))
+        h = self.dropout(act2(fc2(h)))
+        return out(fc3(h))
 
 
 class DeepMomentumLSTM(nn.Module):

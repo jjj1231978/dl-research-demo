@@ -13,6 +13,10 @@ in the QIS source (Phase 1 spec scope, not commodity-curve infrastructure):
 
 - `TRAIN_START` / `TRAIN_END` / `TEST_START` / `TEST_END` — the 60/40
   chronological split locked in /clarify OD-3 (see research.md §R3).
+- `VAL_START` — start of the validation slice carved off the END of the
+  training window (VAL_START..TRAIN_END). The deep-momentum trainer fits
+  on TRAIN_START..VAL_START and early-stops on this slice, so the test
+  window plays no part in model selection.
 - `BCOM_ROOTS` — the 18 BCOM commodity roots covered by the developer's
   databento lake (5 energy + 5 grains + 2 livestock + 4 base metals + 2
   precious metals). Sourced from
@@ -27,6 +31,7 @@ from datetime import date
 
 TRAIN_START: date = date(2010, 6, 6)
 TRAIN_END: date = date(2019, 12, 31)
+VAL_START: date = date(2018, 1, 1)
 TEST_START: date = date(2020, 1, 1)
 TEST_END: date | None = None  # forward — uses whatever data exists at backtest time
 

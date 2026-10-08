@@ -231,11 +231,20 @@ _REF_KEYS = {"Long Only": "long_only", "Sgn(Returns)": "sgn_returns",
              "MACD": "macd"}
 _DEEP_KEYS = {"MLP-Sharpe": "mlp_sharpe", "LSTM-Sharpe": "lstm_sharpe"}
 
+# The headline is always out of sample. The slider can be widened into the
+# training years, where the deep models' Sharpe is an in-sample fit, and a
+# fit should never be what a visitor reads first. The tabs below still follow
+# the slider for anyone inspecting that overfitting deliberately.
+_result_panel = (
+    backtest_panel[backtest_panel["date"] >= pd.Timestamp(TEST_START)]
+    if not backtest_panel.empty else backtest_panel
+)
+
 
 def _strategy_sharpe(key: str) -> float:
-    sub = backtest_panel[
-        (backtest_panel["strategy"] == key)
-        & (backtest_panel["vol_scaling"] == vol_scaling)
+    sub = _result_panel[
+        (_result_panel["strategy"] == key)
+        & (_result_panel["vol_scaling"] == vol_scaling)
     ]
     if sub.empty:
         return float("nan")
@@ -246,7 +255,7 @@ def _strategy_sharpe(key: str) -> float:
     return float(report_metrics(d)["annual_sharpe"])
 
 
-if not backtest_panel.empty:
+if not _result_panel.empty:
     _deep = {lab: _strategy_sharpe(k) for lab, k in _DEEP_KEYS.items()}
     _deep = {k: v for k, v in _deep.items() if np.isfinite(v)}
     _refs = {lab: _strategy_sharpe(k) for lab, k in _REF_KEYS.items()}
@@ -255,13 +264,14 @@ if not backtest_panel.empty:
     if _deep and _refs:
         _best_deep = max(_deep, key=_deep.get)
         _best_ref = max(_refs, key=_refs.get)
-        _lo_shown, _hi_shown = date_range[0], date_range[1]
+        _lo_shown = max(date_range[0], TEST_START)
+        _hi_shown = date_range[1]
         st.markdown("## Result")
         stat_row([
             (_best_deep, f"{_deep[_best_deep]:.2f}", "annualised Sharpe"),
             ("Best classical", f"{_refs[_best_ref]:.2f}", _best_ref),
             ("Period", f"{_lo_shown} to {_hi_shown}",
-             f"{backtest_panel['date'].nunique():,} trading days"),
+             f"{_result_panel['date'].nunique():,} trading days, out of sample"),
         ])
         st.markdown(
             "Both the classical signals and the deep models see the same "
@@ -269,23 +279,20 @@ if not backtest_panel.empty:
             "the position; the deep models output the position directly, "
             "trained on negative Sharpe."
         )
-        # The panel spans the training window as well as the test window, and
-        # the default slider position starts at the test split for a reason:
-        # the MLP memorises 2010-2019, so a range widened to include it
-        # reports an in-sample Sharpe that means nothing out of sample.
-        if pd.Timestamp(_lo_shown) < pd.Timestamp(TEST_START):
+        if pd.Timestamp(date_range[0]) < pd.Timestamp(TEST_START):
             st.warning(
-                f"The selected window starts before the {TEST_START} "
-                "train/test split, so these figures are partly **in-sample** "
-                "and overstate what the deep models achieve out of sample. "
-                "Reset the backtest window to compare fairly."
+                f"The backtest window starts before the {TEST_START} "
+                "train/test split. The result above is clipped to the test "
+                "period, but the tabs below include the training years, where "
+                "the deep models' figures are **in-sample** and overstate "
+                "what they achieve out of sample."
             )
         _res = go.Figure()
         for _lab, _key in ((_best_deep, _DEEP_KEYS[_best_deep]),
                            (_best_ref, _REF_KEYS[_best_ref])):
-            _sub = backtest_panel[
-                (backtest_panel["strategy"] == _key)
-                & (backtest_panel["vol_scaling"] == vol_scaling)
+            _sub = _result_panel[
+                (_result_panel["strategy"] == _key)
+                & (_result_panel["vol_scaling"] == vol_scaling)
             ]
             if _sub.empty:
                 continue

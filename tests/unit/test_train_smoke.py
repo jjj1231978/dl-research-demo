@@ -21,16 +21,18 @@ from src.training.train_deep_momentum import train
 
 
 def _make_tiny_cme_parquet(path: Path, n_contracts: int = 5) -> None:
-    """Tiny long-format CME parquet covering both train (≤2019-12-31) and
-    test (≥2020-01-01) windows so train() sees non-empty splits.
+    """Tiny long-format CME parquet covering the train (<2018-01-01),
+    validation (2018-2019) and test (≥2020-01-01) windows so train() sees
+    three non-empty splits.
 
-    Each window needs ≥ 252 (longest return horizon) + 60 (seq_length)
-    rows per contract for `_build_features` to emit any samples.
+    The first 252 (longest return horizon) + 60 (seq_length) rows per
+    contract are warm-up and emit no samples, so the train window starts
+    early enough to leave samples before 2018.
     """
     rng = np.random.default_rng(42)
     rows = []
     contracts = ["CL", "ZC", "GC", "HG", "NG"][:n_contracts]
-    train_dates = pd.date_range("2018-01-01", periods=480, freq="B")
+    train_dates = pd.date_range("2016-01-01", periods=1000, freq="B")
     test_dates = pd.date_range("2020-04-01", periods=480, freq="B")
     for ct in contracts:
         for dates in (train_dates, test_dates):
@@ -80,3 +82,51 @@ def test_train_runs_on_cpu_one_epoch(tmp_path: Path):
 
     sidecar = ckpt_dir / "mlp_sharpe.json"
     assert sidecar.exists(), f"no sidecar written to {sidecar}"
+
+
+def test_reported_test_sharpe_is_from_saved_checkpoint(tmp_path: Path):
+    """The sidecar's test Sharpe must describe the weights that ship.
+
+    Regression: the trainer used to score the last epoch's in-memory weights
+    while the checkpoint held the best validation epoch, so the sidecar and
+    the backtest of that checkpoint disagreed. A stale checkpoint from an
+    earlier run must not survive either.
+    """
+    from src.data.futures import TEST_START
+    from src.models.deep_momentum import DeepMomentumMLP
+    from src.training.train_deep_momentum import _build_per_day_features
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    ckpt_dir = tmp_path / "pretrained"
+    ckpt_dir.mkdir()
+    _make_tiny_cme_parquet(data_dir / "cme_futures.parquet")
+    stale = DeepMomentumMLP()
+    torch.nn.init.zeros_(stale.net[1].weight)
+    torch.save(stale.state_dict(), ckpt_dir / "mlp_sharpe.pt")
+
+    metrics = train(
+        data_dir=data_dir,
+        arch="MLP",
+        device=torch.device("cpu"),
+        checkpoint_dir=ckpt_dir,
+        max_epochs=4,
+    )
+
+    model = DeepMomentumMLP()
+    model.load_state_dict(torch.load(ckpt_dir / "mlp_sharpe.pt", map_location="cpu"))
+    model.eval()
+    assert model.net[1].weight.abs().sum() > 0, "stale checkpoint was not replaced"
+
+    panel = pd.read_parquet(data_dir / "cme_futures.parquet")
+    panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
+    X, y, m, dates, _ = _build_per_day_features(panel)
+    sel = pd.to_datetime(dates) >= pd.Timestamp(TEST_START)
+    X, y, m = (torch.from_numpy(a[sel]) for a in (X, y, m))
+    b, c, s, f = X.shape
+    with torch.no_grad():
+        pos = model(X.reshape(b * c, s, f)).reshape(b, c)
+    port = ((pos * y * m.float()).sum(dim=1) / m.sum(dim=1).clamp(min=1)).numpy()
+    expected = port.mean() / port.std() * np.sqrt(252)
+
+    assert metrics["test_annual_sharpe"] == pytest.approx(expected, rel=1e-4)
