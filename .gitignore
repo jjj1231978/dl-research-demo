@@ -73,6 +73,7 @@ data/backtests/*.parquet.json
 !data/lob_fi2010_demo.parquet
 !data/backtests/momentum_results.parquet
 !data/backtests/momentum_results.parquet.json
+!data/backtests/momentum_walkforward.parquet
 !data/backtests/portfolio_results.parquet
 !data/backtests/portfolio_results.parquet.json
 !data/backtests/lob_results.parquet
