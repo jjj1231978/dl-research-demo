@@ -58,15 +58,17 @@ A trained `.pt` file plus JSON sidecar. Two instances in Phase 2:
   "universe": "etfs",
   "n_assets": 4,
   "data_range": {
-    "train_start": "2011-01-03", "train_end": "2019-12-31",
+    "train_start": "2011-01-03", "val_start": "2018-01-01",
+    "train_end": "2019-12-31",
     "test_start": "2020-01-01", "test_end": "2026-05-15"
   },
-  "split": "chronological_test_2020",
+  "split": "chronological_train_val_test",
   "hyperparameters": {
     "hidden_size": 64,
     "lr": 1e-3,
     "batch_size_days": 32,
     "epochs_trained": 87,
+    "best_epoch": 62,
     "patience": 25,
     "min_delta": 1e-4,
     "lookback": 50,

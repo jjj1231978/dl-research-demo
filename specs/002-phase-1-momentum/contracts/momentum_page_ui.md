@@ -161,8 +161,11 @@ the sidebar is wired correctly.
 
 The substrate disclosure block in Tab 1 MUST literally contain the
 substring `"BCOM commodity roots"` AND `"Pinnacle CLC"` AND
-`"qualitative-ordering claims hold on commodities-only"`. Verified by the
-integration test.
+`"ordering does **not** reproduce out of sample"`. Verified by the
+integration test. (Until the 2026-10 retrain this read "qualitative-ordering
+claims hold on commodities-only"; once the models were early-stopped on a
+validation slice instead of the test set, the out-of-sample results no
+longer supported it.)
 
 The CSV-fallback / parquet-absent banner MUST literally contain
 `"single-asset toy mode"` and `"scripts/fetch_futures.py"`.

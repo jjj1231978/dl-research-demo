@@ -413,9 +413,10 @@ with tab1:
         "This page uses the 18 BCOM commodity roots from the developer's "
         "databento lake (some contracts may be absent or thinly populated). "
         "Lim et al. 2019 used Pinnacle CLC's multi-asset-class dataset "
-        "(commodities + fixed income + equities + FX). The paper's "
-        "qualitative-ordering claims hold on commodities-only; absolute "
-        "Sharpe values differ from the paper."
+        "(commodities + fixed income + equities + FX). On this "
+        "commodities-only substrate the paper's ordering does **not** "
+        "reproduce out of sample: both deep models finish near zero Sharpe "
+        "from 2020, behind the classical signals (see Key Results)."
     )
 
     with st.expander("Ticker legend — what each BCOM root stands for", expanded=False):
@@ -670,11 +671,11 @@ with tab4:
                 "**What to look for**: With no σ-target rescaling, each "
                 "strategy runs at its native volatility — the metric table "
                 "mixes scales, so direct Sharpe-vs-Sharpe comparison across "
-                "rows is misleading. The headline finding from the paper is "
-                "that the deep Sharpe-loss models already out-Sharpe the "
-                "classical signals even before fair-volatility rescaling, "
-                "because the Sharpe loss implicitly de-leverages high-vol "
-                "periods. Exhibit 3 is the fair-comparison view."
+                "rows is misleading. The paper's headline finding is that "
+                "the deep Sharpe-loss models out-Sharpe the classical signals "
+                "even before rescaling, because the Sharpe loss implicitly "
+                "de-leverages high-vol periods. Check the Sharpe column "
+                "against that claim; Exhibit 3 is the fair-comparison view."
             )
 
         with sub4b:
@@ -686,15 +687,18 @@ with tab4:
             st.markdown(
                 "**What to look for**: All strategies now run at the same "
                 "ex-ante 15 % vol target, so Sharpe and drawdown are directly "
-                "comparable. The paper's qualitative ordering — "
-                "LSTM-Sharpe ≥ MLP-Sharpe > MACD > Sgn(Returns) > Long Only — "
-                "is expected to survive the BCOM commodities-only substrate, "
-                "though absolute Sharpe values run lower than the paper "
-                "because we lack the cross-asset-class diversification of "
-                "the original Pinnacle dataset (commodities + bonds + "
-                "equities + FX). The Sortino and Calmar columns matter here: "
-                "deep models tend to improve both, suggesting the gain isn't "
-                "just symmetric tail-risk compression."
+                "comparable. The paper reports LSTM-Sharpe ≥ MLP-Sharpe > "
+                "MACD > Sgn(Returns) > Long Only. Over the 2020+ test window "
+                "this replication does not reproduce that: both deep models "
+                "sit near zero Sharpe while the classical signals stay "
+                "positive. Two caveats keep the gap from being read as a "
+                "verdict on the method: the substrate is 18 commodities "
+                "rather than the paper's cross-asset Pinnacle set, and there "
+                "was no hyperparameter search. The models were early-stopped "
+                "on 2018-2019 and never selected on the test window, so "
+                "these figures are honest out-of-sample numbers. Widen the "
+                "backtest window into the training years to see how far the "
+                "in-sample fit overstates them."
             )
 
         with sub4c:
@@ -718,14 +722,13 @@ with tab4:
             plot(fig4c, height=460)
             st.markdown(
                 "**What to look for**: On a log scale, parallel lines mean "
-                "equal compound returns. Deep-model curves sitting above the "
-                "classical ones is the visual restatement of Exhibit 3's "
-                "Sharpe ordering. Watch the 2020 COVID volatility spike — "
-                "paper Exhibit 4 panel b's specific claim is that deep "
-                "models cut gross exposure when realised volatility rises, "
-                "so their drawdowns through that window are typically "
-                "shallower than classical signals at the same nominal vol "
-                "target."
+                "equal compound returns, so the vertical order of the curves "
+                "restates Exhibit 3's Sharpe ordering. Watch the 2020 COVID "
+                "volatility spike: paper Exhibit 4 panel b claims deep models "
+                "cut gross exposure when realised volatility rises, giving "
+                "shallower drawdowns than classical signals at the same "
+                "nominal vol target. Compare the curves through that window "
+                "to see whether that holds here."
             )
 
         with sub4d:

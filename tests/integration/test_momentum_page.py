@@ -197,7 +197,7 @@ def test_substrate_disclosure_visible(parquet_present, deep_model):
     for needle in (
         "BCOM commodity roots",
         "Pinnacle CLC",
-        "qualitative-ordering claims hold on commodities-only",
+        "ordering does **not** reproduce out of sample",
     ):
         assert needle in all_markdown, (
             f"Substrate-disclosure substring {needle!r} not found.\n"

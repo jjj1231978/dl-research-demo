@@ -91,12 +91,14 @@ v1.1.0 update):
   "torch_version": "2.x.x",
   "modal_app": "deep-finance-train-momentum",
   "arch": "MLP",
-  "data_range": {"train_start": "2010-06-06", "train_end": "2019-12-31",
+  "data_range": {"train_start": "2010-06-06", "val_start": "2018-01-01",
+                  "train_end": "2019-12-31",
                   "test_start": "2020-01-01", "test_end": "2026-05-05"},
-  "split": "chronological_60_40",
+  "split": "chronological_train_val_test",
   "hyperparameters": {
     "hidden_size": 20, "lr": 1e-3, "batch_size": 128,
-    "epochs_trained": 87, "patience": 25, "min_delta": 1e-4,
+    "epochs_trained": 87, "best_epoch": 62, "weight_decay": 1e-4,
+    "dropout": 0.3, "patience": 25, "min_delta": 1e-4,
     "seq_length": 60, "n_features": 8
   },
   "final_metrics": {
