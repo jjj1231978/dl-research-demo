@@ -1,5 +1,5 @@
 {
-  "trained_on": "2026-05-18",
+  "trained_on": "2026-10-08",
   "trained_with": "Modal T4 (image im-OEdJLDNYyL5xvikxTpJ5Sq)",
   "torch_version": "2.12.0+cu130",
   "modal_app": "deep-finance-train-deeplob",
@@ -22,31 +22,38 @@
     "lookback": 100,
     "batch_size": 64,
     "lr": 0.001,
-    "epochs_trained": 11,
-    "patience": 10,
-    "min_delta": 0.001
+    "adam_eps": 1e-08,
+    "epochs_trained": 53,
+    "best_epoch": 33,
+    "patience": 20,
+    "early_stopping_on": "val_accuracy",
+    "min_delta": 0.0001
   },
   "final_metrics": {
-    "val_loss": 1.1484423351647266,
-    "test_accuracy": 0.3279225208020734,
-    "test_precision_macro": 0.49784080542113385,
-    "test_recall_macro": 0.36024263402880363,
-    "test_f1_macro": 0.23395667953806817,
+    "val_accuracy": 0.6554879246023955,
+    "val_loss": 0.9226247395702343,
+    "test_accuracy": 0.7037957053320794,
+    "test_precision_macro": 0.6658507428645234,
+    "test_recall_macro": 0.4400063673858076,
+    "test_f1_macro": 0.43299362550377807,
+    "test_precision_weighted": 0.7147259219544426,
+    "test_recall_weighted": 0.7037957053320794,
+    "test_f1_weighted": 0.6503932013846104,
     "confusion_matrix": [
       [
-        16428,
-        4623,
-        3
+        1230,
+        17374,
+        2450
       ],
       [
-        69325,
-        29159,
-        49
+        156,
+        89926,
+        8451
       ],
       [
-        11324,
-        8289,
-        89
+        41,
+        12786,
+        6875
       ]
     ]
   },
