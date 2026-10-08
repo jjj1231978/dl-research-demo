@@ -210,21 +210,40 @@ def train(
 
     TEST_START = pd.Timestamp("2020-01-01")
     TRAIN_END = pd.Timestamp("2019-12-31")
-    train_panel = panel[panel["date"] <= TRAIN_END]
-    test_panel = panel[panel["date"] >= TEST_START]
-    log.info("Train rows: %d (… → %s); test rows: %d (%s → ...)",
-             len(train_panel), TRAIN_END.date(), len(test_panel), TEST_START.date())
+    # Early stopping uses the end of the training window, never the test set.
+    VAL_START = pd.Timestamp("2018-01-01")
 
-    Xtr, ytr, _dates_tr, assets = _build_per_day_features_portfolio(train_panel)
-    Xte, yte, _dates_te, _ = _build_per_day_features_portfolio(test_panel)
+    # Features look only backwards, so build them once over the whole panel
+    # (as scripts/run_backtests.py does) and split the samples by date.
+    X, y, dates, assets = _build_per_day_features_portfolio(panel)
+    dates = pd.to_datetime(dates)
+    in_train = dates < VAL_START
+    in_val = (dates >= VAL_START) & (dates <= TRAIN_END)
+    in_test = dates >= TEST_START
+    # A sample's target is the NEXT day's return, so the last sample of the
+    # train and val segments would be scored on the segment after it.
+    for seg in (in_train, in_val):
+        idx = np.flatnonzero(seg)
+        if len(idx):
+            seg[idx[-1]] = False
+    if not (in_train.any() and in_val.any() and in_test.any()):
+        raise ValueError(
+            f"Empty split: train={in_train.sum()} val={in_val.sum()} "
+            f"test={in_test.sum()} days. Train ends before {VAL_START.date()}, "
+            f"val {VAL_START.date()}..{TRAIN_END.date()}, test {TEST_START.date()}+."
+        )
     n_assets = len(assets)
-    log.info("Train tensors: X=%s y=%s; test: X=%s y=%s; assets=%s",
-             Xtr.shape, ytr.shape, Xte.shape, yte.shape, assets)
+    log.info("Days: train=%d, val=%d (%s → %s), test=%d (%s → ...); assets=%s",
+             in_train.sum(), in_val.sum(), VAL_START.date(), TRAIN_END.date(),
+             in_test.sum(), TEST_START.date(), assets)
 
-    train_ds = _PortfolioDataset(Xtr, ytr)
-    test_ds = _PortfolioDataset(Xte, yte)
-    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
+    def _loader(sel, shuffle):
+        return DataLoader(_PortfolioDataset(X[sel], y[sel]),
+                          batch_size=32, shuffle=shuffle)
+
+    train_loader = _loader(in_train, shuffle=True)
+    val_loader = _loader(in_val, shuffle=False)
+    test_loader = _loader(in_test, shuffle=False)
 
     # ── Model ───────────────────────────────────────────────────────
     model = DeepPortfolioMLP(n_assets=n_assets, lookback=50, hidden_size=64).to(device)
@@ -235,6 +254,11 @@ def train(
             resume_path = checkpoint_dir / resume_path
         log.info("Resuming from %s", resume_path)
         model.load_state_dict(torch.load(resume_path, map_location=device))
+
+    # The canonical EarlyStopping only writes on improvement and never on its
+    # first call, so a checkpoint left by an earlier run would otherwise
+    # survive and be reloaded below as if it were this run's best.
+    final_path.unlink(missing_ok=True)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     early = EarlyStopping(savepath=str(final_path), patience=25,
@@ -264,11 +288,12 @@ def train(
             n_batches += 1
         avg_train_loss = total_train_loss / max(n_batches, 1)
 
-        # Validation (full test window, single Sharpe value for early-stop stability)
+        # Validation (full val window, single Sharpe value for early-stop
+        # stability). The test window is only touched by the final scoring.
         model.eval()
         with torch.no_grad():
             port_segments = []
-            for xb, yb in test_loader:
+            for xb, yb in val_loader:
                 xb = xb.to(device); yb = yb.to(device)
                 port_segments.append(_portfolio_returns(xb, yb))
             port_full = torch.cat(port_segments)
@@ -279,12 +304,17 @@ def train(
                  epoch + 1, avg_train_loss, val_neg_sharpe)
 
         early(model, val_neg_sharpe)
+        if epoch == 0:
+            # EarlyStopping takes the first epoch as its best without saving.
+            torch.save(model.state_dict(), final_path)
         if early.early_stop:
             log.info("Early stopping at epoch %d", epoch + 1)
             break
 
-    if not final_path.exists():
-        torch.save(model.state_dict(), final_path)
+    # Score the checkpoint that ships, i.e. the best validation epoch, not
+    # whatever weights the last epoch left in memory.
+    model.load_state_dict(torch.load(final_path, map_location=device))
+    best_epoch = int(np.argmin(val_loss_history)) + 1
 
     # ── Final metrics on the per-day portfolio return series ────────
     model.eval()
@@ -313,24 +343,26 @@ def train(
         "universe": universe,
         "n_assets": n_assets,
         "data_range": {
-            "train_start": str(train_panel["date"].min().date()),
+            "train_start": str(dates[in_train].min().date()),
+            "val_start": str(VAL_START.date()),
             "train_end": str(TRAIN_END.date()),
             "test_start": str(TEST_START.date()),
             "test_end": str(panel["date"].max().date()),
         },
-        "split": "chronological_test_2020",
+        "split": "chronological_train_val_test",
         "hyperparameters": {
             "hidden_size": model.hidden_size,
             "lr": 1e-3,
             "batch_size_days": 32,
             "epochs_trained": epochs_run,
+            "best_epoch": best_epoch,
             "patience": 25,
             "min_delta": 1e-4,
             "lookback": model.lookback,
             "aggregation": "per_day_portfolio_sum",
         },
         "final_metrics": {
-            "val_neg_sharpe": val_loss_history[-1] if val_loss_history else None,
+            "val_neg_sharpe": min(val_loss_history),
             "test_annual_sharpe": test_annual_sharpe,
             "test_max_drawdown": test_mdd,
             "test_calmar": test_calmar,

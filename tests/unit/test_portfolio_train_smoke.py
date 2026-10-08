@@ -17,13 +17,13 @@ from src.training.train_deep_portfolio import train
 
 
 def _make_tiny_etf_parquet(path: Path) -> None:
-    """5-asset parquet, single continuous window covering both train (≤2019)
-    and test (≥2020) so the trainer's split has data on each side.
+    """5-asset parquet, single continuous window covering train (<2018),
+    validation (2018-2019) and test (≥2020) so every split has data.
     """
     rng = np.random.default_rng(42)
     rows = []
     syms = ["VTI", "AGG", "DBC", "VIXY", "XEXTRA"]  # the trainer derives N from columns
-    dates = pd.date_range("2018-01-01", "2021-12-31", freq="B")
+    dates = pd.date_range("2017-01-01", "2021-12-31", freq="B")
     for sym in syms:
         prices = 100.0 * np.cumprod(1 + rng.normal(0, 0.01, len(dates)))
         for d, p in zip(dates, prices):
