@@ -362,7 +362,7 @@ if not panel.empty:
     _deep_row = _repro[_repro["method"] == "deeplob"]
     # The classical baselines this repo reproduces itself, as opposed to the
     # deep architectures it also trains.
-    _classical = _repro[_repro["method"].isin(("lda", "svm", "bof", "mcsda"))]
+    _classical = _repro[_repro["method"].isin(("lda", "svm"))]
 
     _paper_deep = panel[(panel["source"] == "paper_reported")
                         & (panel["method"] == "deeplob") & (panel["k"] == 10)]
@@ -936,41 +936,85 @@ with tab4:
                 "gives the stricter macro view."
             )
             st.divider()
-            def _table(avg: str) -> pd.DataFrame:
+            _METRICS = (("Accuracy", "accuracy"), ("Precision", "precision_{avg}"),
+                        ("Recall", "recall_{avg}"), ("F1", "f1_{avg}"))
+            _NOT_REPORTED = "n/r"
+
+            def _fmt(v) -> str:
+                return _NOT_REPORTED if pd.isna(v) else f"{v * 100:.1f}"
+
+            def _side_by_side() -> pd.DataFrame:
+                """One row per method: the paper's figures beside ours.
+
+                Paper rows use the paper's convention (weighted, see above);
+                ours are weighted too. Cells the paper does not give are
+                marked n/r: Zhang et al. quote the SVM / MLP / CNN / LSTM
+                rows from earlier papers that reported precision, recall
+                and F1 but no accuracy.
+                """
                 view = panel.copy()
-                for c in (f"precision_{avg}", f"recall_{avg}", f"f1_{avg}"):
+                for c in ("precision_weighted", "recall_weighted", "f1_weighted"):
                     if c not in view:
                         view[c] = np.nan
-                if avg == "macro":
-                    view = view[view["source"] == "reproduced_here"]
                 view["Method"] = view["method"].apply(
                     lambda m: _ARCH_LABEL.get(m, m.upper()))
-                view["Source"] = view["source"].map({
-                    "reproduced_here": "reproduced here",
-                    "paper_reported": "paper-reported",
-                })
+                rows = []
+                for method in view["Method"].unique():
+                    paper = view[(view["Method"] == method)
+                                 & (view["source"] == "paper_reported")]
+                    here = view[(view["Method"] == method)
+                                & (view["source"] == "reproduced_here")]
+                    row = {"Method": method}
+                    for label, col in _METRICS:
+                        c = col.format(avg="weighted")
+                        row[f"{label} (paper)"] = _fmt(paper[c].iloc[0]) if len(paper) else _NOT_REPORTED
+                        row[f"{label} (here)"] = _fmt(here[c].iloc[0]) if len(here) else "—"
+                    # Sort on the best F1 available for the method.
+                    f1s = [float(x) for x in (row["F1 (paper)"], row["F1 (here)"])
+                           if x not in (_NOT_REPORTED, "—")]
+                    row["_sort"] = max(f1s) if f1s else -1.0
+                    rows.append(row)
+                out = pd.DataFrame(rows).sort_values("_sort", ascending=False)
+                return out.drop(columns="_sort").reset_index(drop=True)
+
+            def _macro_table() -> pd.DataFrame:
+                view = panel[panel["source"] == "reproduced_here"].copy()
+                view["Method"] = view["method"].apply(
+                    lambda m: _ARCH_LABEL.get(m, m.upper()))
                 out = pd.DataFrame({
-                    "Method": view["Method"], "Source": view["Source"],
+                    "Method": view["Method"],
                     "Accuracy": (view["accuracy"] * 100).round(1),
-                    "Precision": (view[f"precision_{avg}"] * 100).round(1),
-                    "Recall": (view[f"recall_{avg}"] * 100).round(1),
-                    "F1": (view[f"f1_{avg}"] * 100).round(1),
+                    "Precision": (view["precision_macro"] * 100).round(1),
+                    "Recall": (view["recall_macro"] * 100).round(1),
+                    "F1": (view["f1_macro"] * 100).round(1),
                 })
                 return out.sort_values("F1", ascending=False).reset_index(drop=True)
 
-            st.markdown("**Table II, paper's convention** — weighted "
-                        "Precision / Recall / F1 for reproduced rows; "
-                        "paper rows as published")
-            st.dataframe(_table("weighted"), hide_index=True, width="stretch")
+            st.markdown("**Table II, paper's figures beside ours** — "
+                        "weighted Precision / Recall / F1 on both sides")
+            st.dataframe(_side_by_side(), hide_index=True, width="stretch")
             st.caption(
-                "All values × 100; best F1 at the top; blank cells are "
-                "figures the paper does not give. Paper-reported entries "
-                "are Zhang et al. 2019 Table II, Setup 2, k=10."
+                "All values × 100; sorted by best F1. **n/r** = not "
+                "reported: Zhang et al. 2019 give Accuracy only for their "
+                "own DeepLOB and the two TABL rows. The SVM, MLP, CNN-I, "
+                "CNN-II and LSTM rows are quoted from Tsantekidis et al. "
+                "(2017), who report mean recall, precision and F1 plus "
+                "Cohen's κ, a chance-corrected agreement score, and no "
+                "accuracy at all: with 70% of windows *stationary*, accuracy "
+                "would mostly measure how often a model says so. It cannot "
+                "be recovered from the figures they did publish. (Their "
+                "Table I orders the columns Recall, Precision; Zhang et al. "
+                "carried the numbers across as Precision, Recall, so for "
+                "those rows the two columns are swapped relative to the "
+                "source.) The *(here)* columns fill the gap with the same "
+                "architecture trained and scored in this repo. — = not "
+                "reproduced here: the TABL models. LDA is this repo's "
+                "addition."
             )
             st.markdown("**Reproduced rows, macro averaging** — each class "
                         "weighted equally, so the two rare classes count as "
                         "much as the 71% stationary class")
-            st.dataframe(_table("macro"), hide_index=True, width="stretch")
+            st.dataframe(_macro_table(), hide_index=True, width="stretch")
             st.markdown(
                 "**What to look for.** On the paper's convention the "
                 "reproduced DeepLOB lands within a couple of points of the "

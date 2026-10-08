@@ -5,6 +5,8 @@ CNN-II, LSTM) live in `src/models/deeplob.py` because they require
 PyTorch + Modal training. Closed-form CPU baselines live here:
 
 - ``fit_lda`` / ``predict_lda`` — Linear Discriminant Analysis.
+- ``fit_svm`` / ``predict_svm`` — linear SVM (one-vs-rest), the classical
+  row Zhang et al. 2019 quote from Tsantekidis et al. 2017.
 - ``fit_gatheral_oomen_threshold`` / ``gatheral_oomen_predict`` —
   Level-1 depth-imbalance heuristic derived from Gatheral & Oomen
   (2010) volume-weighted mid-price. P_VW = (V_b·P_a + V_a·P_b)/(V_b+V_a)
@@ -46,6 +48,26 @@ def predict_lda(model, X_test: np.ndarray) -> np.ndarray:
 def predict_proba_lda(model, X_test: np.ndarray) -> np.ndarray:
     """Predict 3-class probabilities. Returns (n_samples, 3)."""
     return model.predict_proba(X_test)
+
+
+def fit_svm(X_train: np.ndarray, y_train: np.ndarray, C: float = 1.0):
+    """Fit a linear SVM on flattened LOB features.
+
+    `LinearSVC` (liblinear, one-vs-rest) rather than a kernel SVM: with
+    T*40 = 4000 features per window a kernel fit on tens of thousands of
+    windows is impractical on CPU, and the FI-2010 features are already
+    z-scored so no further scaling is needed. `class_weight="balanced"`
+    keeps the 70% stationary class from swallowing the other two.
+    """
+    from sklearn.svm import LinearSVC
+    model = LinearSVC(C=C, class_weight="balanced", dual=False, max_iter=5000)
+    model.fit(X_train, y_train)
+    return model
+
+
+def predict_svm(model, X_test: np.ndarray) -> np.ndarray:
+    """Predict 3-class labels for a fitted linear SVM. Returns (n_samples,)."""
+    return model.predict(X_test)
 
 
 def _l1_imbalance(X: np.ndarray) -> np.ndarray:

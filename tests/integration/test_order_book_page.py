@@ -260,13 +260,15 @@ def test_substrate_disclosure_visible(page_env):
     indirect=True,
 )
 def test_table_ii_has_six_plus_rows(page_env):
-    """Tab 4A renders a Table II dataframe with ≥ 9 rows when both demo +
-    ckpts present (8 paper-reported + 1+ reproduced)."""
+    """Tab 4A renders Table II with one row per method, the paper's figures
+    beside ours: ≥ 9 methods when both demo + ckpts present (8 from the
+    paper plus LDA), DeepLOB present with both a paper and a reproduced F1,
+    and LSTM's accuracy filled from our run where the paper has none."""
     at = _run_app()
     assert not at.exception, str([str(e) for e in at.exception])
     dfs = _all_dataframes(at)
-    expected_cols = {"Method", "Source", "Accuracy", "Precision",
-                      "Recall", "F1"}
+    expected_cols = {"Method", "Accuracy (paper)", "F1 (paper)",
+                     "Accuracy (here)", "F1 (here)"}
     table = next(
         (d for d in dfs
          if d.value is not None and expected_cols.issubset(set(d.value.columns))),
@@ -277,13 +279,12 @@ def test_table_ii_has_six_plus_rows(page_env):
         f"Rendered df cols: "
         f"{[list(d.value.columns) if d.value is not None else None for d in dfs]}"
     )
-    assert len(table.value) >= 9, (
-        f"Table II has {len(table.value)} rows; expected ≥ 9 "
-        f"(8 paper-reported + 1+ reproduced)."
-    )
-    assert "DeepLOB" in set(table.value["Method"]) and \
-        "paper-reported" in set(table.value["Source"]), (
-        "the paper's own DeepLOB row must appear in Table II")
+    t = table.value.set_index("Method")
+    assert len(t) >= 9, f"Table II has {len(t)} methods; expected ≥ 9."
+    assert t.loc["DeepLOB", "F1 (paper)"] == "83.4"
+    assert t.loc["DeepLOB", "F1 (here)"] not in ("n/r", "—")
+    assert t.loc["LSTM", "Accuracy (paper)"] == "n/r"
+    assert t.loc["LSTM", "Accuracy (here)"] not in ("n/r", "—")
 
 
 @pytest.mark.parametrize(

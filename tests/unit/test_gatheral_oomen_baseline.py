@@ -86,3 +86,22 @@ def test_predict_degenerate_single_class_label():
     thresholds = fit_gatheral_oomen_threshold(X, y)
     preds = gatheral_oomen_predict(X, thresholds)
     assert (preds == 1).all()
+
+
+def test_linear_svm_baseline_fits_and_predicts_three_classes():
+    """The reproduced SVM row in Table II: fits on flattened windows and
+    returns labels in {0, 1, 2} for every test window."""
+    import numpy as np
+
+    from src.strategies.lob_classical import fit_svm, predict_svm
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(600, 40)).astype(np.float32)
+    # Each class is the cone where one of the first three features is the
+    # largest, so a one-vs-rest linear classifier can carve all three out.
+    y = X[:, :3].argmax(axis=1)
+    clf = fit_svm(X[:400], y[:400])
+    preds = predict_svm(clf, X[400:])
+    assert preds.shape == (200,)
+    assert set(np.unique(preds)) <= {0, 1, 2}
+    assert (preds == y[400:]).mean() > 0.8  # separable by construction

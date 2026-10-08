@@ -559,7 +559,7 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
     from src.models.deeplob import (
         DeepLOB, LOBCNN_I, LOBCNN_II, LOBLSTM, LOBSimpleMLP,
     )
-    from src.strategies.lob_classical import fit_lda, predict_lda
+    from src.strategies.lob_classical import fit_lda, fit_svm, predict_lda, predict_svm
 
     parquet = data_dir / "lob_fi2010.parquet"
     if not parquet.exists():
@@ -608,30 +608,33 @@ def _build_lob_panel(data_dir: Path, checkpoint_dir: Path):
         preds = np.concatenate(preds)
         rows.append(_lob_metric_row(arch_name.lower(), yte, preds))
 
-    # ── LDA classical (sklearn, no Modal) ───────────────────────────
-    # LDA scales O(min(n,p)^3) and we have p = 100*40 = 4000 features, so
-    # we subsample training windows to keep the fit tractable on CPU
-    # (full ~254k windows × 4000 features = 4 GB and ~hours of SVD).
-    _LDA_TRAIN_SAMPLES = 30_000
-    log.info("Fitting LDA on flattened LOB features …")
+    # ── Classical baselines (sklearn, no Modal) ────────────────────
+    # LDA scales O(min(n,p)^3) and a linear SVM is not much better, with
+    # p = 100*40 = 4000 features, so both fit on the same 30k subsample of
+    # training windows (full ~254k windows × 4000 features = 4 GB and
+    # hours of CPU).
+    _CLASSICAL_TRAIN_SAMPLES = 30_000
     Xtr_flat = Xtr.reshape(Xtr.shape[0], -1).astype(np.float32)
     Xte_flat = Xte.reshape(Xte.shape[0], -1).astype(np.float32)
-    if len(Xtr_flat) > _LDA_TRAIN_SAMPLES:
+    if len(Xtr_flat) > _CLASSICAL_TRAIN_SAMPLES:
         rng = np.random.default_rng(42)
-        idx = rng.choice(len(Xtr_flat), size=_LDA_TRAIN_SAMPLES, replace=False)
+        idx = rng.choice(len(Xtr_flat), size=_CLASSICAL_TRAIN_SAMPLES, replace=False)
         Xtr_flat = Xtr_flat[idx]
         ytr_sub = ytr[idx]
-        log.info("  LDA subsample: %d train windows (of %d)", _LDA_TRAIN_SAMPLES, len(Xtr))
+        log.info("  classical subsample: %d train windows (of %d)",
+                 _CLASSICAL_TRAIN_SAMPLES, len(Xtr))
     else:
         ytr_sub = ytr
-    try:
-        lda = fit_lda(Xtr_flat, ytr_sub)
-        preds = predict_lda(lda, Xte_flat)
-        row = _lob_metric_row("lda", yte, preds)
-        rows.append(row)
-        log.info("LDA F1=%.3f", row["f1_macro"])
-    except Exception as exc:  # noqa: BLE001
-        log.warning("LDA fit failed: %s", exc)
+    for name, fit, predict in (("lda", fit_lda, predict_lda),
+                               ("svm", fit_svm, predict_svm)):
+        log.info("Fitting %s on flattened LOB features …", name.upper())
+        try:
+            clf = fit(Xtr_flat, ytr_sub)
+            row = _lob_metric_row(name, yte, predict(clf, Xte_flat))
+            rows.append(row)
+            log.info("%s macro-F1=%.3f", name.upper(), row["f1_macro"])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("%s fit failed: %s", name.upper(), exc)
 
     # ── Paper-reported baselines (no confusion matrix) ──────────────
     for method, acc, prec, rec, f1 in LOB_PAPER_REPORTED:
